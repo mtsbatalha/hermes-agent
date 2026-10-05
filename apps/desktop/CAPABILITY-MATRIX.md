@@ -21,6 +21,12 @@ the copy the UI shows instead.
 
 The port replaces one object, not 157 features.
 
+Two things only calling the server could have told us, both now measured below:
+the bundle belongs on **`hermes dashboard`**, because the headless `hermes serve`
+refuses three routes this matrix promises; and the WebSocket ticket path works in
+gated mode but is **unreachable on loopback**, so the token-in-URL exposure is not
+hypothetical — it is what the first local deployment does.
+
 ## How these numbers were counted
 
 Three passes were run over `src/**` (2,722 `.ts`/`.tsx` files) and they disagree,
@@ -195,86 +201,275 @@ typed return for every member the boot path touches.
 
 ## What Phase 2 has to build (not a cut — a scope)
 
-1. **A registry home for `connections`.** Either a small server-side endpoint
-   mirroring `connections.json`, or an explicit per-browser list with the
-   limitation stated in Settings. The second is a product decision; the first is
-   a few hours in `hermes_cli`.
-2. **The ticket path, proven.** Phase 0 ran the loopback `?token=` form only. The
-   gated `Sec-WebSocket-Protocol` ticket leg is the one a real deployment uses and
-   it has never been exercised by the spike. It is the first thing Phase 2 should
-   measure, because if it fails the same-origin design does not save it.
+Both items below were open when this section was first written; the measured
+sections that follow now answer them. What is left is short:
+
+1. **A registry home for `connections`** — one small server endpoint mirroring
+   `connections.json`, or an explicit per-browser list with the limitation stated
+   in Settings. See *`connections` — closed, on measurement*.
+2. **Deploy on `hermes dashboard`, not `hermes serve`.** The headless server
+   refuses three routes the matrix promises. This is a one-line deployment
+   decision, not work.
+3. **A real gated handshake, end to end.** The parse rule and the ticket store are
+   proven; the accept path needs an auth provider registered, which this machine
+   does not have. Loopback is unavoidable in development and its `?token=` path
+   puts a credential in the URL — so the client must ship with loopback labelled a
+   development mode. See *the gated ticket leg*.
+
+## Measured: the routes this matrix promises, actually called
+
+Reading route names is not evidence. Every promise below was exercised against
+two live servers on this machine: `hermes serve` on `:9119` (headless, already
+running) and `hermes dashboard --isolated` on `:9120`, both Hermes **0.21.5+7353**,
+authed with `X-Hermes-Session-Token: spike-token-123`, paths pointing at this repo.
+Repo HEAD and the installed build declare the **same 216 routes** (verified by
+diffing the two route tables — no version skew), so a 404 below is about the
+*call*, not the build.
+
+**The first finding is which server you deploy on.** `hermes serve` is headless and
+refuses part of the surface the matrix relies on:
+
+| Route | `serve` :9119 | `dashboard` :9120 |
+|---|---|---|
+| `/api/dashboard/agent-plugins*` | 404 `web UI disabled — use \`hermes dashboard\`` | 200 |
+| `/api/tools/terminal/backends` | 404 same | 200 `{"active":"local",…}` |
+| `/api/ops/doctor` | 404 same | 200 `{"ok":true,…}` (POST) |
+
+> **The client bundle belongs on `hermes dashboard`, not `hermes serve`.** The
+> Phase 0 spike pointed the renderer at `hermes serve` and that choice would have
+> shipped a client missing three capabilities it has already been promised.
+
+Confirmed working on the dashboard server, with real payloads — this is the
+evidence behind Column A, not a promise:
+
+| Route (method) | Status | Returns |
+|---|---:|---|
+| `/api/fs/list` (GET) | **200** | real `entries[]` |
+| `/api/fs/read-text` (GET) | **200** | `byteSize`, `language`, `mimeType` |
+| `/api/fs/read-data-url` (GET) | **200** | `data:text/markdown;base64,…` |
+| `/api/fs/git-root` (GET) | **200** | repo root |
+| `/api/git/status` (GET) | **200** | `branch: spike/web-renderer`, ahead/behind/staged |
+| `/api/git/branches` (GET) | **200** | local + remote branches |
+| `/api/git/base-branches` (GET) | **200** | branches, `isDefault` flagged |
+| `/api/git/worktrees` (GET) | **200** | worktree list |
+| `/api/git/file-diff` (GET) | **200** | unified diff |
+| `/api/git/review/list` (GET) | **200** | changed files with add/remove counts |
+| `/api/git/review/diff` (GET) | **200** | per-file diff |
+| `/api/git/gh-auth` (GET) | **200** | `{"available":false}` — no `gh` on this host |
+| `/api/profiles`, `/api/profiles/active` (GET) | **200** | roster + active |
+| `/api/hermes/update/check` (GET) | **200** | version, behind, `update_available` |
+| `/api/dashboard/themes`, `/font`, `/plugins`, `/plugins/rescan` (GET) | **200** | themes, font, plugin list, `{ok,count:2}` |
+| `/api/mcp/servers`, `/api/providers/oauth`, `/api/files`, `/api/chat/workspaces`, `/api/pairing`, `/api/env`, `/api/skills`, `/api/config`, `/api/status`, `/api/health`, `/api/host/identity`, `/api/local-models/status` (GET) | **200** | see the sweep in this commit's message |
+
+Honest negatives — routes that do **not** deliver what Column A claimed:
+
+| Route | Status | Consequence for the matrix |
+|---|---:|---|
+| `/api/ssh/ownership` | 404 `SSH ownership is not active` | The feature is off. `sshConfigHosts` / `sshResolveHost` have **no working** server equivalent — the C7 cut is now measured, not assumed. |
+| `/api/media/proxy?url=https://example.com` | **403** `Image host not allowed` | It is an allowlisted proxy, not an open one. `resolveFavicon` and `saveImageFromUrl` (Column B) must design for an allowlist. |
+| `/api/ops/doctor` (GET) | 404/405 | It is **POST**-only. My first sweep reported this as a missing route; the real answer was my method. |
+| `/api/files/download` | 422 missing `path` | Exists; I called it wrong. |
+
+That correction is worth stating plainly: **four "missing routes" in my first
+sweep were four method errors on my side** (`/api/ops/doctor` is POST,
+`/api/fs/read-data-url` is GET, `/api/dashboard/agent-plugins` has no GET
+collection, `/api/tools/terminal/backend` is PUT). Had I recorded them as missing,
+the matrix would have shipped four false cuts. Not called at all, because they
+mutate host state: `PUT /api/tools/terminal/backend`, `POST /api/gateway/restart`,
+`POST /api/gateway/stop`, `POST /api/fs/write-text`, `POST /api/files/mkdir`, and
+`GET /api/env/reveal` (it opens the OS file manager).
+
+## Measured: the gated ticket leg — the decisive question
+
+The Phase 2 design stands or falls on whether a browser can open `/api/ws` without
+putting a long-lived credential in a URL. Three facts, each measured:
+
+**1. The parse rule (real function, executed from the shipped source).**
+`_gateway_ws_ticket_from_subprotocol` with the real constants
+(`hermes-gateway-v1`, prefix `hermes-gateway-ticket.`):
+
+| `Sec-WebSocket-Protocol` sent | Result |
+|---|---|
+| `hermes-gateway-ticket.<t>, hermes-gateway-v1` | `('<t>', 'ok')` |
+| `hermes-gateway-v1, hermes-gateway-ticket.<t>` (reversed) | `('<t>', 'ok')` — order-independent |
+| ticket protocol **alone** | `('', 'invalid')` |
+| public protocol alone | `('', 'none')` |
+| **two** ticket protocols | `('', 'invalid')` |
+| prefix with an empty ticket | `('', 'invalid')` |
+
+A ticket can never travel without the public protocol, and two of them is an
+error. The credential is carried in a **header**, never a URL, and never
+reflected back — the accept path answers with `_GATEWAY_WS_PROTOCOL` only.
+
+**2. The ticket lifecycle (real `ws_tickets.py`).** `TTL_SECONDS = 30`. A minted
+ticket (43 chars) consumes once with `{user_id, provider}`; the second consume is
+rejected `unknown ticket`; a ticket past its TTL is rejected `expired`. Single-use
+and time-boxed, as documented.
+
+**3. The mint endpoint is unreachable outside gated mode — and that is the
+finding.** `POST /api/auth/ws-ticket` returned **401** on *both* live servers
+even with a valid session-token header. `_require_session` reads
+`request.state.session`, which only the auth gate sets; on a loopback bind the
+gate is off and no session is ever established. And gated mode is not something a
+client can opt into: `should_require_auth` is `host not in _LOOPBACK_HOST_VALUES`,
+and `--insecure` is documented as **DEPRECATED / NO-OP** — a public bind always
+requires a real password or OAuth provider.
+
+> **Conclusion, and it sharpens the plan.** The header ticket path is sound *in
+> gated mode*, and a browser can use it there: cookie session → `POST
+> /api/auth/ws-ticket` → subprotocol handshake. But **the first deployment anyone
+> runs is loopback, where the ticket endpoint is 401 and the only working
+> credential is `?token=` in the query string.** Same-origin + `HttpOnly` cookie
+> is therefore not merely preferable — it is the *only* design that makes a public
+> bind safe, and it does nothing for loopback, where the token sits in the URL by
+> necessity. The Phase 2 client must treat loopback as a development-only mode and
+> say so, rather than let the local path become the shipped default.
+>
+> Not exercised end-to-end: a real gated handshake needs an auth provider
+> registered, and this machine has none (providers come from plugins via
+> `auth_plugin_providers.py`). Standing one up — or binding a non-loopback host,
+> which would expose this gateway on the network — is a decision for the user, not
+> something this audit should do unasked. What is proven above is the shipped code
+> text for the parse and the ticket store; the accept path itself is covered by
+> the repo's own `tests/hermes_cli/test_dashboard_auth_ws_auth.py`, which I could
+> not run here (no `pytest`/`fastapi` in this Python, and the Hermes launcher is a
+> compiled binary with no importable venv).
+
+## `connections` — closed, on measurement
+
+Ten members, 22 call sites, 19 files. Persistence is
+`app.getPath('userData')/connections.json` — Electron `userData`, readable by no
+browser and served by no route. Called on the dashboard server, the nearest
+surfaces are:
+
+| Route | Status | What it actually is |
+|---|---:|---|
+| `/api/profiles` | 200 | HERMES_HOME profiles, not connection *sources* |
+| `/api/profiles/active` | 200 | the active profile name |
+| `/api/chat/workspaces` | 200 | `{projects, repos, default_cwd, home}` — repos, not registry entries |
+
+So the registry itself has **no server home**, and `/api/profiles` is not a
+substitute: a registry entry is a dialable source (local / remote / cloud / ssh)
+with its own auth material, which is a different shape from a profile name. The
+column closes like this:
+
+- **The port needs one small backend endpoint** mirroring `connections.json` —
+  list/save/remove/set-primary plus the existing `onChanged` push. It is the only
+  new server surface the whole matrix requires.
+- **Until it exists, the honest v1 behaviour is per-browser**: the endpoint list
+  lives in the browser, and Settings states that plainly — *"Your gateway list is
+  stored in this browser only. Add the same gateway on another device to use it
+  there."* That is degraded-with-copy, not a silent divergence.
+- **`connections.test` has a real equivalent** (`/api/profiles/…`, `/api/status`
+  reachability) so testing a saved entry is not blocked by the missing registry.
+- Not a cut: the capability is core. Not a cut by accident either: the renderer
+  branch on `connections.list` returning an empty registry is the honest state, and
+  the renderer already treats an absent member as tolerable.
+
+## Keeping this document true
+
+```bash
+node tools/audit-contract.mjs           # verify; exit 1 on any drift
+node tools/audit-contract.mjs --write   # verify, then regenerate the appendix
+```
+
+`tools/capability-classification.mjs` holds the classification as data;
+`tools/audit-contract.mjs` is the gate. It regenerates the appendix below from
+`src/global.d.ts` and `electron/preload.ts` and **exits non-zero** when a member
+is added without a column, when one is classified twice, when a cut has no family
+or a family has no copy, when a key names a member that no longer exists, when an
+A/B member has no stated replacement, or when a row in the generated region has
+been hand-edited. All five failure modes are demonstrated in this commit's
+message.
+
+It also reports something the hand-written version could not: **preload.ts
+implements 155 of the 157 declared members.** The two it does not are
+`agentPluginsRoot` and `getSyncStatus` — both also among the five the renderer
+never calls. Three independent sources agreeing is the point of the gate: the
+contract declares them, Electron never implemented them, the renderer never uses
+them, and Column C says so without anyone having to remember.
+
+It also caught a bug in the throwaway extractor the earlier draft of this document
+was built from: that script searched for `hermesDesktop` at six spaces when it is
+declared at four, so it silently scanned the head of `global.d.ts` and produced
+the right answer by luck. The committed appendix is parsed from the real block and
+reports the same 157 / 152 / 978 — so the numbers survived, but they no longer
+depend on the accident.
 
 ## Appendix — all 157 members
 
 Every declared member, exactly one column. `Uses` and `Files` are measured over
 `src/**`; `(n members)` is the namespace's nested member count, included in the
 157 by contract but not counted again in the row's use total.
+<!-- BEGIN GENERATED APPENDIX -->
+<!-- generated by tools/audit-contract.mjs --write; do not hand-edit -->
+
 #### Column A
 
 | Member | Uses | Files | Endpoint / equivalent |
 |---|---:|---:|---|
 | `api` | 101 | 39 | The REST funnel. One function to reimplement; 101 measured call sites behind it. |
-| `getConnection` <br>_(2 members)_ | 99 | 20 | Gateway socket handle. Boot-critical — the spike proved the renderer never submits without it. |
-| `profile` <br>_(6 members)_ | 56 | 24 | /api/profiles/active + ?profile=; `set` becomes client state + profile selector. |
+| `getConnection` <br>_(2 members)_ | 99 | 20 | Gateway socket handle. Boot-critical — without it the renderer never submits. |
+| `profile` <br>_(6 members)_ | 56 | 24 | /api/profiles/active + ?profile=; `set` becomes client state plus the profile selector. |
 | `getConnectionFor?` <br>_(3 members)_ | 52 | 14 | Same socket, registry-scoped. |
-| `readFileDataUrl` | 38 | 14 | /api/fs/read-data-url |
+| `readFileDataUrl` | 38 | 14 | GET /api/fs/read-data-url — measured 200 with a real data URL. |
 | `getGatewayWsUrl` | 26 | 3 | Mints the socket URL. Boot-critical. |
-| `connections` <br>_(10 members)_ | 22 | 19 | — |
+| `connections` <br>_(10 members)_ | 22 | 19 | NO SERVER HOME. See the connections section of the matrix: the registry is Electron userData (connections.json), unreadable by any browser and served by no route. /api/profiles and /api/chat/workspaces cover neighbours, not the registry. |
 | `getGatewayWsUrlFor?` <br>_(2 members)_ | 21 | 7 | Registry-scoped mint. Boot-critical; the renderer branches on its presence. |
 | `cloud` <br>_(5 members)_ | 19 | 6 | Portal login round-trip; discovery is a REST call. |
 | `applyConnectionConfig` | 14 | 6 | Re-dial against the new descriptor. |
 | `probeConnectionConfig` | 14 | 6 | Server-side reachability probe. |
-| `saveGatewayFile?` <br>_(8 members)_ | 13 | 6 | /api/files/download — the HOST writes; the browser never needs a path picker. |
-| `readDir` | 12 | 3 | /api/fs/list |
+| `saveGatewayFile?` <br>_(8 members)_ | 13 | 6 | GET /api/files/download — the HOST writes; the browser needs no path picker. |
+| `readDir` | 12 | 3 | GET /api/fs/list — measured 200 with real entries. |
 | `testConnectionConfig` | 11 | 5 | Reachability probe against the saved descriptor. |
-| `updates` <br>_(8 members)_ | 11 | 4 | /api/hermes/update/check + /api/hermes/update. Branch/packaging members are Desktop-only and get no UI. |
+| `updates` <br>_(8 members)_ | 11 | 4 | GET /api/hermes/update/check — measured 200. Branch/packaging members are Desktop-only and get no UI. |
 | `getAgentRoster?` | 10 | 7 | Union roster over registered connections → /api/profiles. |
-| `oauthLoginConnectionConfig` <br>_(2 members)_ | 10 | 6 | URL round-trip; callback lands same-origin. |
+| `oauthLoginConnectionConfig` <br>_(2 members)_ | 10 | 6 | URL round-trip; the callback lands same-origin. |
 | `getConnectionConfig` | 7 | 5 | The descriptor is built client-side from the endpoint URL the user typed. |
-| `oauthLogoutConnectionConfig` | 7 | 5 | /api/providers/oauth |
+| `oauthLogoutConnectionConfig` | 7 | 5 | GET /api/providers/oauth |
 | `sanitizeWorkspaceCwd` | 7 | 4 | Server-side sanitiser already exists. |
 | `settings` <br>_(3 members)_ | 7 | 4 | /api/fs/default-cwd (get/set). |
 | `revealLogs` | 7 | 7 | /api/env/reveal |
-| `git?` <br>_(10 members)_ | 7 | 6 | Full 1:1 REST surface at /api/git/* — worktrees, branches, status, file-diff and the entire review pane (stage/unstage/revert/commit/push/create-pr/pr-list/ship-info/commit-context). |
+| `git?` <br>_(10 members)_ | 7 | 6 | GET /api/git/* — measured 200 for status, branches, base-branches, worktrees, file-diff and review/list + review/diff. The full review pane (stage/unstage/revert/commit/push/create-pr/pr-list/ship-info/commit-context) is declared 1:1 in hermes_cli/web_routers/git.py. |
 | `zoom?` <br>_(4 members)_ | 6 | 4 | Client-side; the browser owns zoom. |
-| `gitRoot?` | 6 | 3 | /api/fs/git-root |
+| `gitRoot?` | 6 | 3 | GET /api/fs/git-root — measured 200 with the repo root. |
 | `getProfileRoutes` | 4 | 2 | Credential-free routes → /api/profiles/active. |
 | `saveConnectionConfig` | 4 | 3 | Client-side persistence of the endpoint entry. |
 | `dataUrlReadMax?` <br>_(2 members)_ | 4 | 2 | Server cap + a client pref. |
 | `normalizePreviewTarget` | 4 | 3 | Pure URL logic — runs in the browser as-is. |
 | `stopPreviewFileWatch` | 4 | 2 | Client-side handle teardown. |
-| `logLine?` | 4 | 3 | Console + /api/ops/debug-share. |
+| `logLine?` | 4 | 3 | POST /api/ops/doctor / /api/ops/debug-share. |
 | `revealPath?` | 4 | 3 | /api/env/reveal |
-| `themes` <br>_(2 members)_ | 4 | 3 | /api/dashboard/themes + /api/dashboard/theme |
-| `readPluginSource?` | 3 | 2 | /api/dashboard/agent-plugins/{name} |
+| `themes` <br>_(2 members)_ | 4 | 3 | GET /api/dashboard/themes + /api/dashboard/font — both measured 200. |
+| `readPluginSource?` | 3 | 2 | GET /api/config/raw and /api/dashboard/agent-plugins/{name}. |
 | `openDir?` | 3 | 3 | /api/env/reveal |
-| `desktopPluginsRoot?` | 3 | 3 | /api/dashboard/plugins |
-| `reconcileDesktopPlugins?` | 3 | 3 | /api/dashboard/plugins/rescan |
-| `terminal` <br>_(8 members)_ | 3 | 2 | /api/pty over WebSocket, plus /api/tools/terminal/backend for the probe. |
-| `probePluginRepo?` <br>_(8 members)_ | 3 | 2 | /api/dashboard/plugins/catalog |
-| `installDesktopPlugin?` <br>_(3 members)_ | 3 | 2 | /api/dashboard/agent-plugins/install |
+| `desktopPluginsRoot?` | 3 | 3 | GET /api/dashboard/plugins |
+| `reconcileDesktopPlugins?` | 3 | 3 | GET /api/dashboard/plugins/rescan — measured 200 {ok,count}. |
+| `terminal` <br>_(8 members)_ | 3 | 2 | /api/pty over WebSocket; GET /api/tools/terminal/backends answers the probe (measured 200). |
+| `probePluginRepo?` <br>_(8 members)_ | 3 | 2 | GET /api/dashboard/plugins/catalog |
+| `installDesktopPlugin?` <br>_(3 members)_ | 3 | 2 | POST /api/dashboard/agent-plugins/install |
 | `onPreviewFileChanged` | 3 | 2 | Same poll/events seam as watchPreviewFile. |
-| `readFileText` | 2 | 1 | /api/fs/read-text |
-| `watchPreviewFile` | 2 | 2 | No OS watcher in a browser: poll /api/files/read or ride /api/events. |
+| `readFileText` | 2 | 1 | GET /api/fs/read-text — measured 200 with byteSize/language/mimeType. |
+| `watchPreviewFile` | 2 | 2 | No OS watcher in a browser: poll /api/fs/read-text or ride /api/events. |
 | `watchDirectory?` | 2 | 1 | Same poll/events seam as watchPreviewFile. |
 | `onExternalOpenFailed?` | 2 | 1 | Client-side error state; the browser reports a blocked pop-up itself. |
 | `mcpOauth?` <br>_(3 members)_ | 2 | 2 | /api/mcp/oauth/flows/{flow_id} + /api/mcp/oauth/callback/{server_name}. |
-| `reportRendererError?` <br>_(4 members)_ | 2 | 2 | POST to /api/ops/doctor. |
+| `reportRendererError?` <br>_(4 members)_ | 2 | 2 | POST /api/ops/doctor — measured 200. |
 | `logsRoot?` | 2 | 1 | /api/env/reveal |
-| `writeTextFile?` | 2 | 1 | /api/fs/write-text |
+| `writeTextFile?` | 2 | 1 | POST /api/fs/write-text |
 | `reachPreviewUrl?` | 2 | 2 | URL resolution — client-side. |
-| `removeDesktopPlugin?` | 2 | 2 | /api/dashboard/agent-plugins/{name} |
-| `probeLocalBackend?` | 2 | 2 | /api/health answers "is a gateway already up" — the whole reason this member exists. |
-| `recycleBackend?` | 2 | 2 | /api/gateway/restart |
-| `getVersion` | 2 | 2 | /api/status |
-| `getMachineProfile?` | 2 | 2 | /api/host/identity |
+| `removeDesktopPlugin?` | 2 | 2 | DELETE /api/dashboard/agent-plugins/{name} |
+| `probeLocalBackend?` | 2 | 2 | GET /api/health answers "is a gateway already up" — measured 200. |
+| `recycleBackend?` | 2 | 2 | POST /api/gateway/restart |
+| `getVersion` | 2 | 2 | GET /api/status — measured 200. |
+| `getMachineProfile?` | 2 | 2 | GET /api/host/identity — measured 200. |
 | `claimStartupLatency?` | 1 | 1 | Client-measurable (performance.now) — no host fact needed. |
-| `readFileDataUrlForAttach?` | 1 | 1 | /api/fs/read-data-url (server-side cap differs). |
-| `localModelsEnabled?` | 1 | 1 | /api/local-models/status — the flag is the backend answering. |
-| `guestOnboardingEnabled?` | 1 | 1 | A launch flag the web client no longer sets: it is read from the gateway it attached to. |
-| `localSkin?` | 1 | 1 | Sanitized config the browser can read from /api/config. |
+| `readFileDataUrlForAttach?` | 1 | 1 | GET /api/fs/read-data-url (the server enforces the lower cap). |
+| `localModelsEnabled?` | 1 | 1 | GET /api/local-models/status — measured 200. |
+| `guestOnboardingEnabled?` | 1 | 1 | A launch flag the web client no longer sets: read it from the gateway it attached to. |
+| `localSkin?` | 1 | 1 | Sanitized config the browser reads from /api/config. |
 | `setActiveConnectionRoute?` <br>_(1 members)_ | 1 | 1 | Client-side route state. |
-| `onOpenFolderRequested?` | 1 | 1 | Becomes a route + /api/env/reveal. |
+| `onOpenFolderRequested?` | 1 | 1 | Becomes a route plus /api/env/reveal. |
 
 #### Column B
 
@@ -288,7 +483,7 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `selectPaths` | 6 | 4 | showOpenFilePicker (Chromium) / <input type=file> elsewhere. |
 | `screenshot?` | 5 | 5 | getDisplayMedia — the user must pick a surface; no silent capture. |
 | `selectSavePath?` <br>_(3 members)_ | 4 | 3 | showSaveFilePicker (Chromium) / anchor download elsewhere. |
-| `saveImageFromUrl` | 4 | 2 | anchor + download, or /api/media/proxy then download. |
+| `saveImageFromUrl` | 4 | 2 | anchor + download. /api/media/proxy measured 403 for a non-allowlisted host, so the allowlist is part of the design. |
 | `getPathForFile` | 4 | 2 | File / FileReader, Blob URLs — drag-and-drop attach works natively. |
 | `onFoundInPage` | 3 | 2 | Custom Highlight API counters (Chromium). |
 | `readClipboard` | 2 | 2 | navigator.clipboard.read — needs transient activation. |
@@ -298,19 +493,19 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `setKeepAwake?` | 2 | 2 | Screen Wake Lock — active tab only, released when backgrounded. |
 | `onDeepLink?` <br>_(1 members)_ | 2 | 2 | URL query/hash — a bookmarkable link, not an OS protocol handler. |
 | `onPowerResume?` | 2 | 2 | visibilitychange — an approximation, not a real power event. |
-| `requestMicrophoneAccess` | 1 | 1 | getUserMedia — needs HTTPS + a permission prompt. |
+| `requestMicrophoneAccess` | 1 | 1 | getUserMedia — needs HTTPS and a permission prompt. |
 | `contextMenuEdit?` | 1 | 1 | Clipboard API against the focused element. |
 | `saveClipboardImage` | 1 | 1 | navigator.clipboard.read image + download. |
 | `fetchLinkTitle` | 1 | 1 | fetch + oEmbed — CORS-bound; degrades to the bare URL. |
-| `resolveFavicon?` | 1 | 1 | fetch + /api/media/proxy fallback. |
-| `onPreviewNav?` | 1 | 1 | iframe + postMessage — cross-origin frames cannot be driven. |
+| `resolveFavicon?` | 1 | 1 | GET /api/media/proxy behind an allowlist — measured 403 off-allowlist, not an open proxy. |
+| `onPreviewNav?` | 1 | 1 | iframe + postMessage — a cross-origin frame cannot be driven. |
 | `signalDeepLinkReady?` | 1 | 1 | Client-side handshake once the deep link is parsed. |
 | `onFocusSession?` | 1 | 1 | visibilitychange + focus events. |
 | `onNotificationAction?` | 1 | 1 | Notification.onclick — works, but only while the tab lives. |
 | `onNotificationActivate?` <br>_(1 members)_ | 1 | 1 | Notification.onclick. |
 | `getOnBattery?` | 1 | 1 | Battery Status API — DEPRECATED and Chromium-only. Ship as unavailable. |
 | `onBatteryChanged?` | 1 | 1 | Same deprecated API. |
-| `findInPage` | 1 | 1 | Ctrl+F, or CSS Custom Highlight API (Chromium). |
+| `findInPage` | 1 | 1 | Ctrl+F, or the CSS Custom Highlight API (Chromium). |
 
 #### Column C
 
@@ -326,7 +521,7 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `revalidateConnection` | 5 | 2 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `touchBackend` | 4 | 2 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `wakeIndicator?` <br>_(3 members)_ | 4 | 3 | **C2** — Always-on-top overlay windows |
-| `glassSupported?` | 4 | 2 | **C3** — Native window theming, glass and host flags |
+| `glassSupported?` | 4 | 2 | **C3** — Native window theming and glass |
 | `resetBootstrap` | 4 | 3 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `openWindow` | 3 | 2 | **C1** — Window chrome and multi-window IPC |
 | `hudModifier?` | 3 | 3 | **C2** — Always-on-top overlay windows |
@@ -342,8 +537,8 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `chatOnboarding?` <br>_(2 members)_ | 2 | 1 | **C2** — Always-on-top overlay windows |
 | `sshConfigHosts` | 2 | 2 | **C7** — Host resources the browser cannot reach |
 | `sshResolveHost` | 2 | 1 | **C7** — Host resources the browser cannot reach |
-| `translucencySupported?` | 2 | 1 | **C3** — Native window theming, glass and host flags |
-| `setTranslucency?` | 2 | 2 | **C3** — Native window theming, glass and host flags |
+| `translucencySupported?` | 2 | 1 | **C3** — Native window theming and glass |
+| `setTranslucency?` | 2 | 2 | **C3** — Native window theming and glass |
 | `setF12ShortcutActive?` | 2 | 1 | **C4** — DevTools / F12 and Electron input channels |
 | `renamePath?` | 2 | 1 | **C7** — Host resources the browser cannot reach |
 | `trashPath?` | 2 | 1 | **C7** — Host resources the browser cannot reach |
@@ -359,8 +554,8 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `contextMenuGuestAddWord?` | 1 | 1 | **C5** — Preview `<webview>` internals |
 | `onContextMenuSpellcheck?` <br>_(1 members)_ | 1 | 1 | **C5** — Preview `<webview>` internals |
 | `capturePreview?` <br>_(3 members)_ | 1 | 1 | **C5** — Preview `<webview>` internals |
-| `setTitleBarTheme?` | 1 | 1 | **C3** — Native window theming, glass and host flags |
-| `setNativeTheme?` | 1 | 1 | **C3** — Native window theming, glass and host flags |
+| `setTitleBarTheme?` | 1 | 1 | **C3** — Native window theming and glass |
+| `setNativeTheme?` | 1 | 1 | **C3** — Native window theming and glass |
 | `setDisableF12?` | 1 | 1 | **C4** — DevTools / F12 and Electron input channels |
 | `onF12Shortcut?` <br>_(1 members)_ | 1 | 1 | **C4** — DevTools / F12 and Electron input channels |
 | `setPreviewShortcutActive?` | 1 | 1 | **C4** — DevTools / F12 and Electron input channels |
@@ -380,3 +575,4 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `getBootstrapState` | 0 | 0 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `getSyncStatus` | 0 | 0 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `stopFindInPage` | 0 | 0 | **C4** — DevTools / F12 and Electron input channels |
+<!-- END GENERATED APPENDIX -->
