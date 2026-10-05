@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Hermes — web spike</title>
+    <style>
+      html, body { background: #111; color-scheme: dark; }
+    </style>
+  </head>
+  <body>
+    <div id="root" class="scrollbar-dt"></div>
+    <!--
+      SPIKE ONLY. Installs a browser-side `window.hermesDesktop` before the real
+      renderer entry evaluates, so the untouched Desktop UI can boot against a
+      plain `hermes serve` gateway with no Electron. Module scripts run in
+      document order, so this must stay ahead of main.tsx.
+    -->
+    <script type="module" src="/spike/install-bridge.ts"></script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
