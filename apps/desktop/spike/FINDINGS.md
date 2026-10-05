@@ -23,6 +23,12 @@ Run it with the steps in [README.md](./README.md).
 
 ## Measured surface
 
+> **Superseded by [../CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md).** The counts
+> below were taken from a pass that matched bare member words; Fase 1 re-measured
+> them alias-aware and found the renderer reaches **152** members (not 128) through
+> its `desktop` alias, over **978** call sites (not 1,191). The stub implements
+> **36** members, not 34. The qualitative findings below still stand.
+
 - **128 distinct bridge members**, referenced across **1,191 call sites in 353 files** (`window.hermesDesktop.*` under `apps/desktop/src`).
 - The harness stub implements **34** top-level members. To get from module load to a painted shell it still needed **47 more**, of which **23 are `on<Event>(callback) → unsubscribe`** pairs — `onPowerResume`, `onWindowStateChanged`, `onPreviewFileChanged`, `onBatteryChanged`, and so on. Each returns a *function*, not a promise. The bridge type declares **38** `on*` members in total, so most of that family is on the boot path.
 - **234 distinct member paths** were touched that the harness did not implement. The full list is what `probe.mjs` prints under `CAPACIDADES AUSENTES`; `__spike.accessed()` in the browser console gives the same data interactively.
@@ -212,7 +218,7 @@ disappears, because the bundle is served from the backend and there is no proxy.
 Nothing structural — the plan's architecture survives the spike intact. Three
 corrections:
 
-1. **Fase 1 is bigger than "2–3 days".** 128 members with 23 unsubscribe pairs on
+1. **Fase 1 is bigger than "2–3 days".** ~150 members with 23 unsubscribe pairs on
    the boot path and several rich structured contracts (`connections`,
    `updates`, `getBootstrapState`, `getPoolLimits`) is a real audit, not a grep.
 2. **Serving the bundle from the backend is not one of several options — it is
