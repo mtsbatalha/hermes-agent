@@ -369,9 +369,13 @@ column closes like this:
 ## Keeping this document true
 
 ```bash
-node tools/audit-contract.mjs           # verify; exit 1 on any drift
+npm run check:contract                  # wired into `npm run check`; exit 1 on any drift
 node tools/audit-contract.mjs --write   # verify, then regenerate the appendix
 ```
+
+A gate nothing runs is not a gate, so `check:contract` is the first step of
+`npm run check`: a change to the bridge that is not reclassified fails the chain
+before lint or a single test runs.
 
 `tools/capability-classification.mjs` holds the classification as data;
 `tools/audit-contract.mjs` is the gate. It regenerates the appendix below from

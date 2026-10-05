@@ -40,14 +40,16 @@ const SRC = path.join(DESKTOP, 'src')
 const args = new Set(process.argv.slice(2))
 const write = args.has('--write')
 const quiet = args.has('--quiet')
-const log = (...a) => { if (!quiet) console.log(...a) }
+const log = (...a) => {
+  if (!quiet) console.log(...a)
+}
 
 // ── 1. the contract ────────────────────────────────────────────────────────
 const dtsLines = readFileSync(DTS, 'utf8').split('\n')
 // `hermesDesktop` sits at 4 spaces inside `declare global { interface Window {`,
 // its members at 6 and namespace members at 8. Matching the wrong indent here
 // silently scans the whole file head and happens to look like it worked.
-const start = dtsLines.findIndex((l) => /^ {4}hermesDesktop: \{$/.test(l))
+const start = dtsLines.findIndex(l => /^ {4}hermesDesktop: \{$/.test(l))
 const end = dtsLines.findIndex((l, i) => i > start && /^ {4}\}$/.test(l))
 if (start < 0 || end < 0) {
   console.error('FATAL: could not find the hermesDesktop block in src/global.d.ts')
@@ -76,13 +78,19 @@ const ALIAS = '(?:hermesDesktop|desktop|bridge)'
 function walk(dir) {
   for (const e of readdirSync(dir)) {
     const p = path.join(dir, e)
-    if (statSync(p).isDirectory()) { walk(p); continue }
+    if (statSync(p).isDirectory()) {
+      walk(p)
+      continue
+    }
     if (!/\.(ts|tsx)$/.test(e)) continue
     const txt = readFileSync(p, 'utf8')
     for (const m of members) {
       const dotted = (txt.match(new RegExp(`${ALIAS}\\??\\.${m.name}\\b`, 'g')) || []).length
-      const destr = (txt.match(new RegExp(`(?:desktop|bridge|hermesDesktop)[^\\n]{0,40}\\{[^}\\n]*\\b${m.name}\\b`, 'g')) || []).length
-      if ((txt.match(new RegExp(`(?:window\\.)?hermesDesktop\\??\\.${m.name}\\b`, 'g')) || []).length) spelled.add(m.name)
+      const destr = (
+        txt.match(new RegExp(`(?:desktop|bridge|hermesDesktop)[^\\n]{0,40}\\{[^}\\n]*\\b${m.name}\\b`, 'g')) || []
+      ).length
+      if ((txt.match(new RegExp(`(?:window\\.)?hermesDesktop\\??\\.${m.name}\\b`, 'g')) || []).length)
+        spelled.add(m.name)
       const n = dotted + destr
       if (n > 0) {
         uses.set(m.name, (uses.get(m.name) || 0) + n)
@@ -110,8 +118,8 @@ for (const m of members) {
 // ── 4. classify, and fail on drift ─────────────────────────────────────────
 const failures = []
 const assigned = new Map()
-const declared = new Set(members.map((m) => m.name))
-const nestedNames = new Set(members.flatMap((m) => (m.nested || []).map((n) => n)))
+const declared = new Set(members.map(m => m.name))
+const nestedNames = new Set(members.flatMap(m => (m.nested || []).map(n => n)))
 
 for (const m of members) {
   const inA = Object.hasOwn(A, m.name)
@@ -167,8 +175,10 @@ for (const name of previouslyImplemented) {
 const counts = { A: 0, B: 0, C: 0 }
 for (const v of assigned.values()) counts[v.col]++
 
-log(`contract: ${members.length} members (${members.filter((m) => m.optional).length} optional)`)
-log(`usage:    ${[...uses.keys()].filter((k) => uses.get(k) > 0).length} members reached, ${[...uses.values()].reduce((a, b) => a + b, 0)} call sites`)
+log(`contract: ${members.length} members (${members.filter(m => m.optional).length} optional)`)
+log(
+  `usage:    ${[...uses.keys()].filter(k => uses.get(k) > 0).length} members reached, ${[...uses.values()].reduce((a, b) => a + b, 0)} call sites`
+)
 log(`columns:  A=${counts.A} B=${counts.B} C=${counts.C}`)
 log(`preload:  ${implemented.size} of ${members.length} declared members implemented in Electron`)
 log(`spelled-only distinct members (the undercount): ${spelled.size}`)
@@ -181,10 +191,8 @@ if (failures.length) {
 log('\nOK — every declared member has exactly one column, every cut has a family')
 
 // ── 5. regenerate the appendix ─────────────────────────────────────────────
-const order = (col) =>
-  [...assigned.entries()]
-    .filter(([, v]) => v.col === col)
-    .sort((a, b) => (uses.get(b[0]) || 0) - (uses.get(a[0]) || 0))
+const order = col =>
+  [...assigned.entries()].filter(([, v]) => v.col === col).sort((a, b) => (uses.get(b[0]) || 0) - (uses.get(a[0]) || 0))
 
 const out = []
 for (const col of ['A', 'B', 'C']) {
@@ -192,12 +200,12 @@ for (const col of ['A', 'B', 'C']) {
   out.push('| Member | Uses | Files | Endpoint / equivalent |')
   out.push('|---|---:|---:|---|')
   for (const [name, v] of order(col)) {
-    const m = members.find((x) => x.name === name)
+    const m = members.find(x => x.name === name)
     const nested = (m.nested || []).length
-    const cell = v.col === 'C'
-      ? `**${v.family}** — ${FAMILIES[v.family]?.title || 'MISSING FAMILY'}`
-      : (v.note || '—')
-    out.push(`| \`${name}${m.optional ? '?' : ''}\`${nested ? ` <br>_(${nested} members)_` : ''} | ${uses.get(name) || 0} | ${(files.get(name) || new Set()).size} | ${cell} |`)
+    const cell = v.col === 'C' ? `**${v.family}** — ${FAMILIES[v.family]?.title || 'MISSING FAMILY'}` : v.note || '—'
+    out.push(
+      `| \`${name}${m.optional ? '?' : ''}\`${nested ? ` <br>_(${nested} members)_` : ''} | ${uses.get(name) || 0} | ${(files.get(name) || new Set()).size} | ${cell} |`
+    )
   }
 }
 const table = out.join('\n')

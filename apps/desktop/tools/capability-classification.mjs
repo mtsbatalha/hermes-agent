@@ -72,14 +72,15 @@ export const A = {
   getMachineProfile: 'GET /api/host/identity — measured 200.',
   updates: 'GET /api/hermes/update/check — measured 200. Branch/packaging members are Desktop-only and get no UI.',
   themes: 'GET /api/dashboard/themes + /api/dashboard/font — both measured 200.',
-  connections: 'NO SERVER HOME. See the connections section of the matrix: the registry is Electron userData (connections.json), unreadable by any browser and served by no route. /api/profiles and /api/chat/workspaces cover neighbours, not the registry.',
+  connections:
+    'NO SERVER HOME. See the connections section of the matrix: the registry is Electron userData (connections.json), unreadable by any browser and served by no route. /api/profiles and /api/chat/workspaces cover neighbours, not the registry.',
   localModelsEnabled: 'GET /api/local-models/status — measured 200.',
   guestOnboardingEnabled: 'A launch flag the web client no longer sets: read it from the gateway it attached to.',
   localSkin: 'Sanitized config the browser reads from /api/config.',
   watchPreviewFile: 'No OS watcher in a browser: poll /api/fs/read-text or ride /api/events.',
   watchDirectory: 'Same poll/events seam as watchPreviewFile.',
   stopPreviewFileWatch: 'Client-side handle teardown.',
-  normalizePreviewTarget: 'Pure URL logic — runs in the browser as-is.',
+  normalizePreviewTarget: 'Pure URL logic — runs in the browser as-is.'
 }
 
 export const B = {
@@ -90,7 +91,8 @@ export const B = {
   selectSavePath: 'showSaveFilePicker (Chromium) / anchor download elsewhere.',
   writeClipboard: 'navigator.clipboard.write — needs transient activation.',
   readClipboard: 'navigator.clipboard.read — needs transient activation.',
-  saveImageFromUrl: 'anchor + download. /api/media/proxy measured 403 for a non-allowlisted host, so the allowlist is part of the design.',
+  saveImageFromUrl:
+    'anchor + download. /api/media/proxy measured 403 for a non-allowlisted host, so the allowlist is part of the design.',
   saveImageBuffer: 'anchor + download. A real download, no silent path.',
   savePastedText: 'anchor + download.',
   saveClipboardImage: 'navigator.clipboard.read image + download.',
@@ -114,7 +116,7 @@ export const B = {
   findInPage: 'Ctrl+F, or the CSS Custom Highlight API (Chromium).',
   onFoundInPage: 'Custom Highlight API counters (Chromium).',
   onPreviewNav: 'iframe + postMessage — a cross-origin frame cannot be driven.',
-  'settings.pickDefaultProjectDir': 'Directory picker — see the settings namespace.',
+  'settings.pickDefaultProjectDir': 'Directory picker — see the settings namespace.'
 }
 
 /** member -> family id. Every C member needs one. */
@@ -188,7 +190,7 @@ export const C = {
   trashPath: 'C7',
   getRecentLogs: 'C7',
   getSecretStorageEncryption: 'C7',
-  setSecretStorageEncryption: 'C7',
+  setSecretStorageEncryption: 'C7'
 }
 
 /**
@@ -199,30 +201,30 @@ export const C = {
 export const FAMILIES = {
   C1: {
     title: 'Window chrome and multi-window IPC',
-    copy: 'No custom titlebar: the browser frame is the frame. Every "open in a new window" action becomes "open in a new tab" (a link), and the pop-out Browser button is replaced by that link. Cross-window coordination disappears — there is only one window.',
+    copy: 'No custom titlebar: the browser frame is the frame. Every "open in a new window" action becomes "open in a new tab" (a link), and the pop-out Browser button is replaced by that link. Cross-window coordination disappears — there is only one window.'
   },
   C2: {
     title: 'Always-on-top overlay windows',
-    copy: 'HUD, pet, wake indicator and Quick Entry are separate OS windows. They are removed, not half-rendered. Quick Entry survives only as a documented in-page shortcut; the chord itself is listed as unavailable.',
+    copy: 'HUD, pet, wake indicator and Quick Entry are separate OS windows. They are removed, not half-rendered. Quick Entry survives only as a documented in-page shortcut; the chord itself is listed as unavailable.'
   },
   C3: {
     title: 'Native window theming and glass',
-    copy: 'The web theme governs the whole surface. The two fact members report a constant so the renderer takes its own "unsupported" branch instead of guessing.',
+    copy: 'The web theme governs the whole surface. The two fact members report a constant so the renderer takes its own "unsupported" branch instead of guessing.'
   },
   C4: {
     title: 'DevTools / F12 and Electron input channels',
-    copy: 'The browser owns F12 and its own find bar. The FindBar is removed and Ctrl+F documented; Desktop-only toggles are hidden rather than shown disabled-but-clickable.',
+    copy: 'The browser owns F12 and its own find bar. The FindBar is removed and Ctrl+F documented; Desktop-only toggles are hidden rather than shown disabled-but-clickable.'
   },
   C5: {
     title: 'Preview `<webview>` internals',
-    copy: 'Previews become sandboxed iframes. The two with no equivalent at all report an explicit "Not available in the browser client"; the app never returns an empty image or a silent no-op.',
+    copy: 'Previews become sandboxed iframes. The two with no equivalent at all report an explicit "Not available in the browser client"; the app never returns an empty image or a silent no-op.'
   },
   C6: {
     title: 'Host process lifecycle, bootstrap and Desktop packaging',
-    copy: 'A browser client attaches to a gateway somebody else runs, so nothing here is faked: no tray, no relaunch, no uninstall, no install/bootstrap flow. The bootstrap onboarding screen is replaced by one honest "Connect to a Hermes gateway" form, Settings reads "Managed on the host" where a Desktop-only action used to sit, and the status bar reads "Gateway offline — retrying" with its countdown, because the socket close is the only signal a browser gets.',
+    copy: 'A browser client attaches to a gateway somebody else runs, so nothing here is faked: no tray, no relaunch, no uninstall, no install/bootstrap flow. The bootstrap onboarding screen is replaced by one honest "Connect to a Hermes gateway" form, Settings reads "Managed on the host" where a Desktop-only action used to sit, and the status bar reads "Gateway offline — retrying" with its countdown, because the socket close is the only signal a browser gets.'
   },
   C7: {
     title: 'Host resources the browser cannot reach',
-    copy: 'SSH config, the OS trash, the OS keychain, cross-window metadata and host log lines have no browser counterpart. /api/ssh/ownership exists but answers "SSH ownership is not active", so the SSH pair is cut on measurement, not on principle. Each surfaces an explicit "Not available in the web client" line rather than an empty list that reads as a bug.',
-  },
+    copy: 'SSH config, the OS trash, the OS keychain, cross-window metadata and host log lines have no browser counterpart. /api/ssh/ownership exists but answers "SSH ownership is not active", so the SSH pair is cut on measurement, not on principle. Each surfaces an explicit "Not available in the web client" line rather than an empty list that reads as a bug.'
+  }
 }
