@@ -37,6 +37,10 @@ const MATRIX = path.join(DESKTOP, 'CAPABILITY-MATRIX.md')
 const DTS = path.join(DESKTOP, 'src/global.d.ts')
 const PRELOAD = path.join(DESKTOP, 'electron/preload.ts')
 const SRC = path.join(DESKTOP, 'src')
+// The bridge is its own package (@hermes/web-bridge), not app code: it has no
+// React, no Electron and no renderer imports, so it can be tested and reused
+// without the Desktop app. This gate is what keeps it honest.
+const BRIDGE = path.join(DESKTOP, 'packages/web-bridge')
 
 const args = new Set(process.argv.slice(2))
 const write = args.has('--write')
@@ -185,7 +189,7 @@ for (const v of assigned.values()) counts[v.col]++
 // it carries a cut record with the copy the UI shows instead.
 let bridge = null
 try {
-  bridge = await import(pathToFileURL(path.join(DESKTOP, 'web/bridge/index.ts')).href)
+  bridge = await import(pathToFileURL(path.join(BRIDGE, 'src/index.ts')).href)
 } catch (error) {
   failures.push(`WEB BRIDGE UNREADABLE      ${error.message}`)
 }
@@ -193,34 +197,19 @@ try {
 // Vite STRIPS types without checking them, so a type error in the bridge is
 // invisible to the build and only shows up as a wrong value at runtime — which
 // is how a nullable `this.socket` and a `never`-narrowed handle survived long
-// enough to be measured here. `web/` is outside the renderer tsconfig, so this
-// gate is the only thing that typechecks it.
+// enough to be measured here. The package ships its own tsconfig, and this
+// gate checks it with that file rather than a pile of hand-passed flags.
 if (bridge) {
   try {
     const tsc = path.join(DESKTOP, '../../node_modules/typescript/bin/tsc')
     await new Promise((resolve, reject) => {
-      const child = spawnSync(
-        process.execPath,
-        [
-          tsc,
-          '--noEmit',
-          '--ignoreConfig',
-          '--skipLibCheck',
-          '--target',
-          'es2022',
-          '--module',
-          'esnext',
-          '--moduleResolution',
-          'bundler',
-          '--allowImportingTsExtensions',
-          path.join(DESKTOP, 'web/bridge/index.ts')
-        ],
-        { encoding: 'utf8' }
-      )
+      const child = spawnSync(process.execPath, [tsc, '-p', path.join(BRIDGE, 'tsconfig.json'), '--noEmit'], {
+        encoding: 'utf8'
+      })
       if (child.status === 0) resolve()
       else reject(new Error((child.stdout || child.stderr || '').trim().split('\n').slice(0, 6).join('\n    ')))
     })
-    log('types:    web/bridge typechecks clean')
+    log('types:    @hermes/web-bridge typechecks clean')
   } catch (error) {
     failures.push(`BRIDGE TYPE ERROR         ${error.message}`)
   }
@@ -281,6 +270,37 @@ if (bridge) {
     failures.push(
       `BRIDGE PLACEHOLDER       ${p} is present on the bridge with an undefined value — delete it or implement it`
     )
+  }
+
+  // A DUPLICATE key in an object literal is silent: the later one wins, so the
+  // object, the key count and every runtime check all agree, and the earlier
+  // definition is simply gone. Found here the hard way — a mutation that
+  // "added" `pickDefaultProjectDir: undefined` as a second key left the real
+  // implementation to overwrite it, so the suite stayed green against a change
+  // that had done nothing. Reading the source is the only place this is visible.
+  //
+  // Scoped to the returned LITERAL of createWebBridge. Two earlier attempts were
+  // wrong in instructive ways: counting occurrences across the whole file
+  // flagged `profile:` (which also names a field of the connection helper's
+  // return), and slicing from the function declaration still included that
+  // helper. The literal starts at its own `return {` — the one place where a
+  // member key can actually collide.
+  const bridgeSource = readFileSync(path.join(BRIDGE, 'src/index.ts'), 'utf8')
+  const fnStart = bridgeSource.indexOf('export function createWebBridge')
+  const returnStart = bridgeSource.indexOf('\n  return {', fnStart)
+  const literal =
+    returnStart === -1 ? '' : bridgeSource.slice(returnStart, bridgeSource.indexOf('\n  }\n', returnStart))
+  const seenKeys = new Map()
+  for (const match of literal.matchAll(/^ {4}([A-Za-z_$][\w$]*):/gm)) {
+    const [, name] = match
+    seenKeys.set(name, (seenKeys.get(name) ?? 0) + 1)
+  }
+  for (const [name, count] of seenKeys) {
+    if (count > 1) {
+      failures.push(
+        `BRIDGE DUPLICATE KEY    ${name} is defined ${count} times in the createWebBridge literal — the later one silently wins`
+      )
+    }
   }
   if (ledger.length !== members.length) {
     failures.push(
@@ -365,7 +385,7 @@ if (next === matrix) {
   process.exit(1)
 }
 
-// ── 6. web/bridge/manifest.ts is GENERATED from this same classification ────
+// ── 6. the bridge's manifest.ts is GENERATED from this classification ──────
 //
 // It used to be produced by a scratch script kept outside the repo, so the
 // ledger's `endpoint` copy could drift from the classification that the audit
@@ -387,7 +407,7 @@ if (next === matrix) {
 // /api/git/* answers 200. A column-A member that the bridge has simply not
 // reached yet is not unavailable — it is unwired, and the copy says so and
 // names the endpoint that would back it.
-const MANIFEST = path.join(DESKTOP, 'web/bridge/manifest.ts')
+const MANIFEST = path.join(BRIDGE, 'src/manifest.ts')
 const liveMembers = new Set(bridge?.IMPLEMENTED_MEMBERS ?? [])
 const statusRecord = m => {
   const v = assigned.get(m.name)
@@ -459,7 +479,9 @@ if (currentManifest === manifestBody) {
   writeFileSync(MANIFEST, manifestBody)
   log('manifest: rewritten')
 } else {
-  failures.push('BRIDGE MANIFEST STALE   web/bridge/manifest.ts does not match the classification. Run with --write.')
+  failures.push(
+    'BRIDGE MANIFEST STALE   packages/web-bridge/src/manifest.ts does not match the classification. Run with --write.'
+  )
 }
 
 // The verdict is settled LAST, after both generated files have been checked, so

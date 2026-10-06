@@ -218,11 +218,16 @@ sections that follow now answer them. What is left is short:
 
 ## Phase 2 — the WebBridge, as built and as measured
 
-The bridge replaces the spike's hand-written `Proxy`. It lives in `web/bridge/`
-and is a plain object literal — no `get` trap, no `has` trap, no placeholder:
-every one of its members is either a real same-origin transport or a browser API
-that genuinely works, and the rest are **absent** so the renderer's own
+The bridge replaces the spike's hand-written `Proxy`. It lives in its own
+package, `apps/desktop/packages/web-bridge` (`@hermes/web-bridge`), and is a
+plain object literal — no `get` trap, no `has` trap, no placeholder: every one
+of its members is either a real same-origin transport or a browser API that
+genuinely works, and the rest are **absent** so the renderer's own
 optional-chaining guard takes the "not here" branch.
+
+It is a package rather than app code because it has no React, no Electron and no
+renderer import — nothing in it needs the Desktop app to exist. That makes it
+directly testable, which is the point: see *What the package's tests catch* below.
 
 **43 of 157 members are live** (37 transport, 6 browser); **114 are cut**. The
 other 60 column-A members are web-native in principle and not yet wired — the
@@ -434,6 +439,39 @@ column closes like this:
   branch on `connections.list` returning an empty registry is the honest state, and
   the renderer already treats an absent member as tolerable.
 
+### What the package's tests catch
+
+48 tests run in `npm run check` (`check:web-bridge`), covering the two
+string-handling paths where a subtle bug cost a debugging cycle, plus the
+capability invariants above.
+
+A test that passes against broken code is worse than no test, so each of the
+three regressions this port actually shipped was **reintroduced** to confirm the
+suite catches it:
+
+| Reintroduced bug | Caught by |
+|---|---|
+| `scheme + '//' + origin` — the socket URL parsed with host `http` | 10 URL tests fail |
+| `profile=${String(scope)}` — the literal `undefined` in the query | 3 scope tests fail |
+| `pickDefaultProjectDir: undefined as never` | `has no key whose value is undefined` |
+
+Two of those mutations first **passed**, and both times the mutation was wrong
+rather than the test. `const profile = scope` is absorbed by the `profile ? …`
+truthiness guard downstream, so it never produced the bug; and inserting
+`pickDefaultProjectDir: undefined` as a *duplicate* key left the real
+implementation to overwrite it. A duplicate key that shadows nothing is a
+different bug — silent — and is worth its own audit check.
+
+### Open: the gated ticket leg is still unproven
+
+`POST /api/auth/ws-ticket` answers **401 on loopback** even with a valid header,
+so the single-use `Sec-WebSocket-Protocol` ticket exchange has never been
+exercised end to end against a real public bind. The client half is therefore
+**not written**: it would be code shaped by guesswork about a handshake nobody
+has observed succeed. This stays the largest open item in the port, and the
+loopback `?token=` path it falls back to in development puts a credential in the
+URL — so loopback must ship labelled a development mode.
+
 ## Keeping this document true
 
 ```bash
@@ -442,9 +480,10 @@ node tools/audit-contract.mjs --write   # verify, then regenerate appendix + bri
 ```
 
 `--write` regenerates **two** files: this document's appendix and
-`web/bridge/manifest.ts`. The manifest used to be produced by a scratch script
-kept outside the repo, which is how `terminal` went on claiming `GET /api/pty`
-long after the wire protocol had been measured. One writer, one source.
+`packages/web-bridge/src/manifest.ts`. The manifest used to be produced by a
+scratch script kept outside the repo, which is how `terminal` went on claiming
+`GET /api/pty` long after the wire protocol had been measured. One writer, one
+source.
 
 The generator runs its own output through the project's prettier before
 comparing. It has to: the audit wrote a file prettier then reformatted, and the

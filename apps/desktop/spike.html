@@ -13,8 +13,9 @@
     <div id="root" class="scrollbar-dt"></div>
     <!--
       SPIKE HARNESS ONLY. The capability bridge itself is product code and lives
-      in /web/bridge — this page only installs it ahead of the renderer entry,
-      with the two development overrides a bare `hermes serve` needs:
+      in the @hermes/web-bridge package — this page only installs it ahead of
+      the renderer entry, with the two development overrides a bare
+      `hermes serve` needs:
 
         devSessionToken   the loopback bind has no cookie session, so REST needs
                          the header and the WS upgrade needs ?token=
@@ -28,7 +29,7 @@
       Module scripts run in document order, so this must stay ahead of main.tsx.
     -->
     <script type="module">
-      import { installWebBridge } from '/web/bridge/index.ts'
+      import { installWebBridge } from '/packages/web-bridge/src/index.ts'
 
       const params = new URLSearchParams(location.search)
       installWebBridge({

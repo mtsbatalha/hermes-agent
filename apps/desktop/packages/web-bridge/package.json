@@ -1,0 +1,23 @@
+{
+  "name": "@hermes/web-bridge",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "The browser capability bridge for the Hermes web client — real same-origin transports, or an explicit cut.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./transport": "./src/transport.ts",
+    "./unsupported": "./src/unsupported.ts",
+    "./manifest": "./src/manifest.ts",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --config vitest.config.ts",
+    "check": "npm run typecheck && npm run test"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "vitest": "4.1.10"
+  }
+}
