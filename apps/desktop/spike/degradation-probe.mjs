@@ -31,8 +31,7 @@ import path from 'node:path'
 
 import { C } from '../tools/capability-classification.mjs'
 
-import pw from 'file:///C:/Users/Mateus/Documents/freebuff/hermes-client/hermes-agent/node_modules/playwright/index.js'
-const { chromium } = pw
+import { chromium } from 'playwright'
 
 const argBase = process.argv.indexOf('--base')
 const BASE = argBase === -1 ? 'http://127.0.0.1:5176' : process.argv[argBase + 1]
