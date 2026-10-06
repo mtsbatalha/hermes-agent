@@ -175,7 +175,33 @@ export function createWebBridge(): Record<string, unknown> {
       getDefaultProjectDir: () => api('/api/fs/default-cwd', {}, 'settings.getDefaultProjectDir'),
       setDefaultProjectDir: (dir: string | null) =>
         api('/api/fs/default-cwd', { method: 'POST', body: { cwd: dir } }, 'settings.setDefaultProjectDir'),
-      pickDefaultProjectDir: undefined as never
+      /**
+       * A directory picker. REQUIRED by the contract, so it cannot be simply
+       * absent — and it must not be `undefined as never` either: a key that is
+       * present with an `undefined` value is the placeholder shape this module
+       * exists to delete, because it survives an `in` check while answering
+       * nothing.
+       *
+       * `showDirectoryPicker` is the browser's real equivalent; where it is
+       * missing (Firefox, Safari) `canceled: true` is the honest answer for a
+       * user who dismissed the picker, and there is no silent substitute.
+       */
+      pickDefaultProjectDir: async (): Promise<{ canceled: boolean; dir: null | string }> => {
+        if (!('showDirectoryPicker' in window)) {
+          // No directory picker exists here. Settings says so in its own copy
+          // rather than this inventing a path the user never chose.
+          return { canceled: true, dir: null }
+        }
+        try {
+          const handle = await (
+            window as unknown as { showDirectoryPicker: () => Promise<{ name: string } | null> }
+          ).showDirectoryPicker()
+          return handle ? { canceled: false, dir: handle.name } : { canceled: true, dir: null }
+        } catch {
+          // AbortError when the user dismisses the picker — same visible result.
+          return { canceled: true, dir: null }
+        }
+      }
     },
     themes: {
       searchMarketplace: (query: string) =>

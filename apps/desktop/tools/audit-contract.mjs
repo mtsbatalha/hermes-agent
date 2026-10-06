@@ -262,6 +262,26 @@ if (bridge) {
     if (!declared.has(name))
       failures.push(`STALE BRIDGE KEY         ${name} is in BRIDGE_STATUS but no longer declared`)
   }
+  // A key that is PRESENT with an `undefined` value is the placeholder shape
+  // this whole exercise exists to delete: it answers `in` and `'x' in desktop`
+  // while returning nothing, which is how `undefined as never` reached the first
+  // bridge. Walk the real object so the check covers nested namespaces too
+  // (`settings.pickDefaultProjectDir` slipped through a top-level-only check).
+  const placeholders = []
+  const findPlaceholders = (value, path, depth) => {
+    if (depth > 3 || value === null || typeof value !== 'object') return
+    for (const key of Object.keys(value)) {
+      const child = value[key]
+      if (child === undefined) placeholders.push(path ? `${path}.${key}` : key)
+      else if (typeof child === 'object') findPlaceholders(child, path ? `${path}.${key}` : key, depth + 1)
+    }
+  }
+  findPlaceholders(bridge.createWebBridge(), '', 0)
+  for (const p of placeholders) {
+    failures.push(
+      `BRIDGE PLACEHOLDER       ${p} is present on the bridge with an undefined value — delete it or implement it`
+    )
+  }
   if (ledger.length !== members.length) {
     failures.push(
       `LEDGER LENGTH            BRIDGE_LEDGER has ${ledger.length} entries, the contract declares ${members.length}`

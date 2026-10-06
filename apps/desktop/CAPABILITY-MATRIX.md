@@ -239,6 +239,14 @@ the build when:
 - the bridge implements something the contract does not declare (`BRIDGE EXTRA`)
 - the ledger and the generated manifest disagree with the classification
   (`LEDGER LENGTH`, `BRIDGE MANIFEST STALE`)
+- a member is **present with an `undefined` value** (`BRIDGE PLACEHOLDER`)
+
+That last one is the original bug wearing a disguise. `settings.pickDefaultProjectDir`
+was required by the contract, so it could not simply be deleted — and it had
+been written as `undefined as never`, which passes an `in` check and a key count
+while answering nothing. The gate now walks the built object (nested namespaces
+included) and fails on any `undefined`-valued key. A top-level-only check would
+have missed it: the offender was one level down.
 
 `IMPLEMENTED_MEMBERS` is **derived** from the bridge object, not maintained
 beside it. A hand-written list is a second source of truth, and it drifted once
