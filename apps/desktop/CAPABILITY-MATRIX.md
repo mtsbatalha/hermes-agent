@@ -21,6 +21,12 @@ the copy the UI shows instead.
 
 The port replaces one object, not 157 features.
 
+**Measured, not assumed: cutting 58 members does not break the app.** Every route
+reads 21–23 of them at runtime, all from always-mounted chrome, and navigating all
+twelve produced zero renderer faults. 35 of the 58 cuts are never touched by a
+live screen at all. The three bare calls that would throw live in paths a browser
+navigation never enters. See "what each screen actually degrades into" below.
+
 Two things only calling the server could have told us, both now measured below:
 the bundle belongs on **`hermes dashboard`**, because the headless `hermes serve`
 refuses three routes this matrix promises; and the WebSocket ticket path works in
@@ -561,11 +567,86 @@ has observed succeed. This stays the largest open item in the port, and the
 loopback `?token=` path it falls back to in development puts a credential in the
 URL — so loopback must ship labelled a development mode.
 
+## Measured: what each screen actually degrades into
+
+Column C says a member has no browser equivalent. It says nothing about whether
+the renderer COPES. That was the open question behind the whole port, so it was
+measured twice — once statically, once in a real browser — and the two disagree
+in a way worth recording.
+
+### Static: `tools/screen-degradation.mjs`
+
+Walks the real import graph (static AND dynamic imports) from each of the
+**12 routes plus 5 non-route roots**, because routes are not all the entry
+points: `RootErrorBoundary` wraps the whole app and the four secondary windows
+(`?win=hud|overlay|quick|wake`) are separate dynamic imports. A route-only walk
+called all twelve screens clean while the app's outermost error handler was
+unguarded.
+
+Each reach of a cut member is classified by what actually happens when the
+member is missing — and the bridge OMITS cut members rather than defining them
+`undefined`, so:
+
+| | |
+|---|---|
+| **guarded** | the optional chain continues past the member (`?.member?.()`), or the value is a truthiness probe, or the local it was bound to is guarded before use |
+| **contained** | a bare call, but guarded earlier in the same function or inside an open `try` — it throws into an error state the UI already draws |
+| **BREAKS** | a bare call, reachable, with no guard and no catch |
+
+Only the third is a defect. The static pass finds **3**, and all three are real
+bare calls in code paths that a browser navigation never enters:
+
+| member | where | why navigation does not reach it |
+|---|---|---|
+| `revealLogs` | `src/components/error-boundary.tsx:188` | `revealLogs()?.catch(…)` — the `?.` guards the RESULT, not the call. Only renders after something already crashed |
+| `revealLogs` | `src/app/settings/gateway-settings.tsx:1491` | a button handler; navigation never clicks it |
+| `quickEntry` | `src/app/contrib/hooks/use-quick-entry-bridge.ts:109` | `?.quickEntry.ackSubmit(…)`; only fires on a native summon gesture the browser has no equivalent for |
+
+These are findings about **Hermes' renderer**, not about the bridge, so they are
+recorded rather than patched: the port is a second client, and editing upstream
+call sites is a decision for upstream. `--fail-on-breaks` is implemented and
+deliberately **not** wired into `npm run check` while these three are open.
+
+### Runtime: `spike/degradation-probe.mjs`
+
+Static reach turned out to be the wrong question. With `@/…` edges correctly
+resolved the walk found **every screen reaches ~832 of the 2722 files** under
+`src/` — barrels and the shared store pull in nearly everything, so per-screen
+attribution collapses to "all screens reach all cut members". True of the import
+graph, useless about the screen.
+
+So the probe loads each route in Chromium with a measurement-only Proxy over the
+installed bridge and records which members the renderer actually reads. (That
+Proxy is the thing the real bridge must never be — a `has()` that answers true
+for everything sent the renderer down a routing path that did not exist. Fine for
+measuring, not for shipping.)
+
+| | static reach | read at runtime |
+|---|---|---|
+| cut members reachable from some root | 56 / 58 | **23 / 58** |
+| routes touching any cut member | 17 / 17 | **12 / 12** |
+
+**The answer to "does the port degrade or break": it degrades, globally, and
+nothing broke.** Navigating all twelve routes produced **zero renderer faults** —
+the only console error was a `404` for `/favicon.ico`. Every route reads 21–23
+cut members, and the stacks put all of them in always-mounted chrome rather than
+route content: titlebar (`setTitleBarTheme`, `setNativeTheme`, `windowControls`),
+theme context, `renderer-loop-pause`, panes (`openSessionWindow`), the
+quick-entry bridge, the pet-overlay gesture, and gateway pool events. That is the
+structural shape of the degradation — it is **chrome-level, not screen-level**, so
+no route is meaningfully more or less degraded than another.
+
+**35 of the 58 cuts cost nothing at runtime.** They are read by code the import
+graph reaches but no live screen executes. That gap is the argument for not
+treating "cut" as "broken", and equally for not treating "reachable" as "used".
+
 ## Keeping this document true
 
 ```bash
 npm run check:contract                  # wired into `npm run check`; exit 1 on any drift
 node tools/audit-contract.mjs --write   # verify, then regenerate appendix + bridge manifest
+node tools/screen-degradation.mjs       # static: cut-member reach per route + non-route root
+node spike/degradation-probe.mjs        # runtime: what each route really reads (needs the preview on :5176)
 ```
 
 `--write` regenerates **two** files: this document's appendix and
