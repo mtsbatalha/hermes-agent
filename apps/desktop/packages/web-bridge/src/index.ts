@@ -53,6 +53,213 @@ type Unsub = () => void
 const NOOP: Unsub = () => undefined
 
 /** One live PTY socket per terminal id, so `terminal.onData` is a real fan-out. */
+/**
+ * Normalize a gateway URL the way `electron/connection-config.ts` does.
+ *
+ * Copied deliberately rather than imported: that module is CommonJS-ish
+ * Electron code with node built-ins, and the rules are load-bearing —
+ * a scheme-less `100.64.0.1:9119` pasted by a user must become an http URL,
+ * and non-http schemes must be REJECTED rather than silently accepted.
+ */
+export function normalizeRemoteBaseUrl(rawUrl: string): string {
+  let value = String(rawUrl ?? '').trim()
+  if (!value) throw new Error('Remote gateway URL is required.')
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) value = `http://${value}`
+
+  let parsed: URL
+  try {
+    parsed = new URL(value)
+  } catch (error) {
+    throw new Error(`Remote gateway URL is not valid: ${(error as Error).message}`)
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`Remote gateway URL must be http:// or https://, got ${parsed.protocol}`)
+  }
+  parsed.hash = ''
+  parsed.search = ''
+  parsed.pathname = parsed.pathname.replace(/\/+$/, '')
+  return parsed.toString().replace(/\/+$/, '')
+}
+
+type AuthProvider = { name: string; displayName: string; supportsPassword: boolean }
+type ProbeResult = {
+  baseUrl: string
+  reachable: boolean
+  authMode: 'oauth' | 'token' | 'unknown'
+  providers: AuthProvider[]
+  version: string | null
+  error: string | null
+}
+
+/**
+ * `probeConnectionConfig` — learn how a remote gateway wants to be called,
+ * WITHOUT sending any credential.
+ *
+ * MEASURED, not assumed: the gateway ships CORSMiddleware scoped to localhost
+ * origins (`web_server.py:442`, verified — a request carrying
+ * `Origin: http://127.0.0.1:5176` comes back with
+ * `access-control-allow-origin` and `vary: Origin`), so a browser can make
+ * this cross-origin call in development, and in production the bundle is served
+ * BY the gateway and the call is same-origin.
+ *
+ * Never throws. The settings UI calls this as the user TYPES a URL, so a
+ * half-typed or unreachable host has to degrade to "can't tell yet"
+ * (`reachable:false`) rather than throw — matching `probeRemoteAuthMode` in
+ * electron/main.ts, which is the reference for the shape returned here.
+ */
+async function probeRemoteAuthMode(rawUrl: string): Promise<ProbeResult> {
+  let baseUrl: string
+  try {
+    baseUrl = normalizeRemoteBaseUrl(rawUrl)
+  } catch (error) {
+    // Not a URL yet — that is the normal state while the field is being typed.
+    return {
+      baseUrl: String(rawUrl ?? ''),
+      reachable: false,
+      authMode: 'unknown',
+      providers: [],
+      version: null,
+      error: (error as Error).message
+    }
+  }
+
+  const unreachable = (message: string): ProbeResult => ({
+    baseUrl,
+    reachable: false,
+    authMode: 'unknown',
+    providers: [],
+    version: null,
+    error: message
+  })
+
+  let status: { auth_required?: boolean; version?: string | null }
+  try {
+    // `/api/status` is public on every Hermes gateway — it backs the portal
+    // liveness probe — so this carries NO credential.
+    const response = await fetch(`${baseUrl}/api/status`, {
+      credentials: 'omit',
+      signal: AbortSignal.timeout(8000)
+    })
+    if (!response.ok) return unreachable(`Gateway answered ${response.status}.`)
+    status = await response.json()
+  } catch (error) {
+    // A browser reports a blocked cross-origin call as an opaque TypeError
+    // with no status; saying so beats inventing a status code.
+    return unreachable(
+      error instanceof Error
+        ? `${error.message}${isOpaqueNetworkError(error) ? ' (the gateway may be blocking this origin)' : ''}`
+        : String(error)
+    )
+  }
+
+  const authRequired = status?.auth_required === true
+  let providers: AuthProvider[] = []
+  if (authRequired) {
+    try {
+      const body = await fetch(`${baseUrl}/api/auth/providers`, {
+        credentials: 'omit',
+        signal: AbortSignal.timeout(8000)
+      })
+      const parsed = body.ok ? await body.json() : null
+      if (Array.isArray(parsed?.providers)) {
+        providers = parsed.providers
+          .filter((p: unknown) => p && typeof p === 'object')
+          .map((p: Record<string, unknown>) => ({
+            name: String(p.name ?? ''),
+            displayName: String(p.display_name ?? p.name ?? ''),
+            supportsPassword: Boolean(p.supports_password)
+          }))
+          .filter((p: AuthProvider) => p.name)
+      }
+    } catch {
+      // Provider metadata only labels the login button; the auth mode is
+      // already known, so this never changes the verdict.
+    }
+  }
+
+  return {
+    baseUrl,
+    reachable: true,
+    authMode: authRequired ? 'oauth' : 'token',
+    providers,
+    version: status?.version ?? null,
+    error: null
+  }
+}
+
+/** A browser cannot read a blocked cross-origin failure's cause. */
+function isOpaqueNetworkError(error: Error): boolean {
+  return error instanceof TypeError && /fetch failed|networkerror|load failed/i.test(error.message)
+}
+
+const CONNECTION_KEY = 'hermes.web.connectionConfig'
+
+/** The token is echoed back as a short preview only, as Electron does. */
+function tokenPreview(token: string): string {
+  return token.length <= 8 ? '••••' : `${token.slice(0, 4)}…${token.slice(-2)}`
+}
+
+type StoredConnection = {
+  mode: string
+  profile: string | null
+  remoteAuthMode: string
+  remoteUrl: string
+  remoteToken: string | null
+  cloudOrg: string
+  sshHost: string
+  sshUser: string
+}
+
+/**
+ * Persist the connection descriptor in `localStorage`, and return the shape the
+ * contract declares.
+ *
+ * The security posture is REPORTED, not hidden: `secureTokenStorage` is false
+ * because there is no keychain here, and `remoteTokenPlainText` is true exactly
+ * when a token is sitting in browser storage. A renderer that wants to warn the
+ * user can read both; a bridge that reported `secureTokenStorage: true` would be
+ * asserting protection it does not have.
+ */
+async function storeConnectionConfig(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const input = payload ?? {}
+  const remoteToken = typeof input.remoteToken === 'string' && input.remoteToken ? input.remoteToken : null
+  const entry: StoredConnection = {
+    mode: typeof input.mode === 'string' ? input.mode : 'local',
+    profile: typeof input.profile === 'string' && input.profile ? input.profile : null,
+    remoteAuthMode: input.remoteAuthMode === 'oauth' ? 'oauth' : 'token',
+    remoteUrl: typeof input.remoteUrl === 'string' ? input.remoteUrl : '',
+    remoteToken,
+    cloudOrg: typeof input.cloudOrg === 'string' ? input.cloudOrg : '',
+    sshHost: typeof input.sshHost === 'string' ? input.sshHost : '',
+    sshUser: typeof input.sshUser === 'string' ? input.sshUser : ''
+  }
+
+  try {
+    globalThis.localStorage?.setItem(CONNECTION_KEY, JSON.stringify(entry))
+  } catch {
+    // Storage unavailable (private mode / quota): the descriptor below is still
+    // a truthful answer for THIS call. It simply will not survive a reload, and
+    // saying otherwise would be a lie about persistence.
+  }
+
+  return {
+    envOverride: false,
+    mode: entry.mode,
+    profile: entry.profile,
+    remoteAuthMode: entry.remoteAuthMode,
+    remoteOauthConnected: false,
+    remoteTokenPreview: remoteToken ? tokenPreview(remoteToken) : null,
+    remoteTokenSet: remoteToken !== null,
+    secureTokenStorage: false,
+    remoteTokenPlainText: remoteToken !== null,
+    remoteUrl: entry.remoteUrl,
+    cloudOrg: entry.cloudOrg,
+    sshHost: entry.sshHost,
+    sshUser: entry.sshUser,
+    gatewayRunning: true
+  }
+}
+
 const ptySockets = new Map<string, PtySocket>()
 
 // Relative, NOT the `@hermes/shared` bare specifier: this module is imported
@@ -242,9 +449,103 @@ export function createWebBridge(): Record<string, unknown> {
         remoteTokenSet: false,
         secureTokenStorage: false,
         remoteTokenStoredPlain: false,
+        remoteTokenPlainText: false,
         gatewayRunning: Boolean(status?.gateway_running)
       }
     },
+
+    /**
+     * ── remote connection probing (43 call sites across this family) ────────
+     *
+     * `probeConnectionConfig` is the one fully portable member here and the one
+     * the settings UI leans on hardest: it renders an OAuth login button vs a
+     * token box as the user TYPES, so it must never throw.
+     *
+     * `testConnectionConfig` is PARTIAL, and the gap is stated rather than
+     * papered over. Electron tests the HTTP leg AND then the live `/api/ws`
+     * upgrade, using the connection's decrypted credential. A browser can do
+     * the HTTP leg (CORS is enabled for localhost origins) but cannot read
+     * Electron's encrypted store, so it tests with the credential the BROWSER
+     * has: the OAuth session cookie, or an explicit token from the payload.
+     * SSH mode needs an ssh binary on the host, which a browser does not have.
+     */
+    probeConnectionConfig: (remoteUrl: string) => probeRemoteAuthMode(remoteUrl),
+    testConnectionConfig: async (payload: {
+      mode?: string
+      remoteUrl?: string
+      remoteToken?: string
+    }): Promise<Record<string, unknown>> => {
+      if (payload?.mode === 'ssh') {
+        // No ssh binary, no host key store, no agent — say which, don't fake ok.
+        return {
+          reachable: false,
+          sshError: 'unsupported-platform',
+          error: 'Testing an SSH connection needs the gateway host to run it; the web client cannot.'
+        }
+      }
+      const rawUrl = payload?.remoteUrl ?? ''
+      let baseUrl: string
+      try {
+        baseUrl = normalizeRemoteBaseUrl(rawUrl)
+      } catch (error) {
+        return { ok: false, reachable: false, error: (error as Error).message }
+      }
+      try {
+        const response = await fetch(`${baseUrl}/api/status`, {
+          // `omit`, never `include` — MEASURED. The gateway ships CORSMiddleware
+          // with `Access-Control-Allow-Credentials` ABSENT, so Chrome blocks a
+          // credentialed cross-origin request outright ("the value of the
+          // 'Access-Control-Allow-Credentials' header is ''"). `omit` and
+          // `same-origin` both pass; `include` cannot, by definition, when the
+          // server does not opt in.
+          //
+          // The consequence is real and stated: an OAuth-gated remote cannot be
+          // credential-tested from a browser across origins today. An explicit
+          // token from the payload still works — it travels as a header, which
+          // is a simple request, not a credentialed one.
+          credentials: 'omit',
+          headers: payload?.remoteToken ? { 'X-Hermes-Session-Token': payload.remoteToken } : {},
+          signal: AbortSignal.timeout(8000)
+        })
+        const body = response.ok ? await response.json() : null
+        return {
+          ok: response.ok,
+          reachable: response.ok,
+          baseUrl,
+          version: body?.version ?? null,
+          ...(response.ok ? {} : { error: `Gateway answered ${response.status}.` })
+        }
+      } catch (error) {
+        return {
+          ok: false,
+          reachable: false,
+          baseUrl,
+          error: error instanceof Error ? error.message : String(error)
+        }
+      }
+    },
+
+    /**
+     * `saveConnectionConfig` persists the entry.
+     *
+     * Electron writes `connections.json` under `userData`, encrypted with the OS
+     * keychain. A browser has neither, so the descriptor is kept in
+     * `localStorage` and `secureTokenStorage` is reported FALSE — the contract
+     * has a field for exactly this, and reporting true would be a lie the
+     * renderer acts on. A supplied `remoteToken` is stored as-is, which is why
+     * `remoteTokenPlainText` reports true when one is present.
+     *
+     * The token is never returned: only a short preview, as Electron does.
+     */
+    saveConnectionConfig: async (payload: Record<string, unknown>) => storeConnectionConfig(payload),
+    /**
+     * `applyConnectionConfig` saves and then re-reads. There is no separate
+     * "apply" on the web client: the bundle is served BY whichever gateway it is
+     * attached to, so a browser cannot re-point its own origin at a different
+     * host the way Electron re-dials its backend. Connecting to a different
+     * gateway means opening that gateway's own URL.
+     */
+    applyConnectionConfig: async (payload: Record<string, unknown>) => storeConnectionConfig(payload),
 
     profile: {
       // The boot path reads this to name its active profile. Returning `null` —

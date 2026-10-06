@@ -117,18 +117,9 @@ export const BRIDGE_STATUS: Record<string, CapabilityRecord> = {
     kind: 'transport',
     endpoint: 'The descriptor is built client-side from the endpoint URL the user typed.'
   },
-  saveConnectionConfig: {
-    kind: 'cut',
-    copy: 'Not wired on the web bridge yet — Client-side persistence of the endpoint entry. The capability exists; this client does not call it yet.'
-  },
-  applyConnectionConfig: {
-    kind: 'cut',
-    copy: 'Not wired on the web bridge yet — Re-dial against the new descriptor. The capability exists; this client does not call it yet.'
-  },
-  testConnectionConfig: {
-    kind: 'cut',
-    copy: 'Not wired on the web bridge yet — Reachability probe against the saved descriptor. The capability exists; this client does not call it yet.'
-  },
+  saveConnectionConfig: { kind: 'transport', endpoint: 'Client-side persistence of the endpoint entry.' },
+  applyConnectionConfig: { kind: 'transport', endpoint: 'Re-dial against the new descriptor.' },
+  testConnectionConfig: { kind: 'transport', endpoint: 'Reachability probe against the saved descriptor.' },
   getSecretStorageEncryption: {
     kind: 'cut',
     copy: 'SSH config, the OS trash, the OS keychain, cross-window metadata and host log lines have no browser counterpart. /api/ssh/ownership exists but answers "SSH ownership is not active", so the SSH pair is cut on measurement, not on principle. Each surfaces an explicit "Not available in the web client" line rather than an empty list that reads as a bug.'
@@ -150,10 +141,7 @@ export const BRIDGE_STATUS: Record<string, CapabilityRecord> = {
     kind: 'cut',
     copy: 'SSH config, the OS trash, the OS keychain, cross-window metadata and host log lines have no browser counterpart. /api/ssh/ownership exists but answers "SSH ownership is not active", so the SSH pair is cut on measurement, not on principle. Each surfaces an explicit "Not available in the web client" line rather than an empty list that reads as a bug.'
   },
-  probeConnectionConfig: {
-    kind: 'cut',
-    copy: 'Not wired on the web bridge yet — Server-side reachability probe. The capability exists; this client does not call it yet.'
-  },
+  probeConnectionConfig: { kind: 'transport', endpoint: 'Server-side reachability probe.' },
   oauthLoginConnectionConfig: {
     kind: 'cut',
     copy: 'Not wired on the web bridge yet — URL round-trip; the callback lands same-origin. The capability exists; this client does not call it yet.'

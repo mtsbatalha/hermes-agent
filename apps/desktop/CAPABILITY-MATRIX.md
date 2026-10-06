@@ -234,9 +234,9 @@ other 60 column-A members are web-native in principle and not yet wired — the
 audit prints that number every run as `transport debt`, so it cannot quietly
 become 61.
 
-> Phase 3 moved this: **46 live** (40 transport, 6 browser) and **53 still in
-> debt**, after wiring file attachments and after correcting four members whose
-> stated endpoint described a different capability.
+> Phase 3 moved this: **50 live** (44 transport, 6 browser) and **49 still in
+> debt**, after wiring file attachments and remote-connection probing, and after
+> correcting four members whose stated endpoint described a different capability.
 
 Three properties are enforced, not promised. `tools/audit-contract.mjs` fails
 the build when:
@@ -513,6 +513,43 @@ from the transport debt rather than moving them up it.
 This is the second time a route name in this document turned out to describe a
 different capability than its member implied. Reading route tables is not
 evidence; calling them is.
+
+### Phase 3, second batch — remote connections, and a CORS fact curl could not see
+
+`probeConnectionConfig`, `testConnectionConfig`, `saveConnectionConfig` and
+`applyConnectionConfig` moved the debt by another four. **50 of 157** are now
+live.
+
+The persistence question came first, as promised. Measured: there is **no route**
+for connection-config persistence — the Electron side writes `connections.json`
+under `userData`. So the descriptor lives in `localStorage`, and the contract's
+security fields are **reported truthfully rather than optimistically**:
+`secureTokenStorage` is `false` (no keychain exists here) and
+`remoteTokenPlainText` is `true` exactly when a token is sitting in browser
+storage. The token is never returned, only a short preview.
+
+Then the part curl could not answer. `web_server.py:442` installs CORSMiddleware
+for localhost origins, and a `curl` with an `Origin` header comes back with a
+correct `access-control-allow-origin` — so a cross-origin probe *looks* fine.
+In a real browser it failed anyway:
+
+```
+Access to fetch at 'http://127.0.0.1:9119/api/status' from origin
+'http://127.0.0.1:5176' has been blocked by CORS policy: The value of the
+'Access-Control-Allow-Credentials' header in the response is ''
+```
+
+The gateway sends `Access-Control-Allow-Credentials: **absent**`. The first
+implementation sent `credentials: 'include'` on the cookie path, so **every**
+credentialed cross-origin request was rejected outright — and it surfaced as an
+opaque `Failed to fetch` that reads exactly like "the host is down". Measured
+side by side: `omit` → 200, `same-origin` → 200, `include` → blocked.
+
+The honest consequence, recorded rather than worked around: **an OAuth-gated
+remote cannot be credential-tested from a browser across origins today.** An
+explicit token still works, because it travels as a header (a simple request),
+not as a cookie. Fixing the cookie leg needs the gateway to opt in — a server
+change, not a client one.
 
 ### Open: the gated ticket leg is still unproven
 
