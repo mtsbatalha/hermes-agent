@@ -234,6 +234,10 @@ other 60 column-A members are web-native in principle and not yet wired — the
 audit prints that number every run as `transport debt`, so it cannot quietly
 become 61.
 
+> Phase 3 moved this: **46 live** (40 transport, 6 browser) and **53 still in
+> debt**, after wiring file attachments and after correcting four members whose
+> stated endpoint described a different capability.
+
 Three properties are enforced, not promised. `tools/audit-contract.mjs` fails
 the build when:
 
@@ -462,6 +466,54 @@ truthiness guard downstream, so it never produced the bug; and inserting
 implementation to overwrite it. A duplicate key that shadows nothing is a
 different bug — silent — and is worth its own audit check.
 
+### Phase 3 — wiring the debt, and one wrong claim found on the way
+
+The audit names the members the matrix calls web-native that the bridge does not
+serve. **53 remain**, behind ~270 call sites, ordered by how often the renderer
+reaches for them. Each batch is wired against a measured route, tested, and the
+debt number has to fall or the batch did nothing.
+
+First batch: `readFileDataUrl`, `readFileDataUrlForAttach`, `dataUrlReadMax` —
+the renderer's single most-used unported member (**38 call sites in 14 files**).
+Two things about it were only findable by measuring:
+
+- the route answers `{"dataUrl": "…"}`, an **object**, and the contract promises
+  a bare string — returned raw it becomes `[object Object]` in an `<img src>`
+- a missing file must **not reject**. `HermesReadFileErrorResult` exists because
+  a restored preview tab pointing at a deleted file is an expected outcome the
+  renderer already draws as "preview unavailable"; throwing would turn a drawn
+  state into an unhandled rejection
+
+`dataUrlReadMax` reports `maxBytes` from the **gateway's** cap (16 MiB, measured
+from `_FS_DATA_URL_MAX_BYTES`), not from the client's preference: raising a
+local preference cannot raise what the server accepts, and reporting the larger
+number would promise an attachment the gateway rejects with 413. The default and
+the clamp are **imported** from `@hermes/shared` rather than restated, so the
+bridge and the renderer's Settings panel cannot drift. Electron persists the
+preference to `userData`; the browser equivalent is `localStorage`, which
+persists across a reload but not across machines — and nothing here claims
+otherwise.
+
+### A wrong claim, corrected: `/api/env/reveal` is not "reveal in file manager"
+
+`revealLogs`, `revealPath`, `openDir` and `logsRoot` were classified Column A
+with the endpoint `/api/env/reveal`. **That is wrong in a way that matters.**
+That route reveals the **unredacted value of one environment variable**,
+rate-limited to 5 per 30s and audit-logged
+(`web_routers/config_env.py`). Wiring `revealLogs` to it would POST a
+secret-unmasking request instead of opening a folder.
+
+The real Electron implementations are `shell.showItemInFolder` /
+`shell.openPath`. Measured: **there is no server route for either** — they are
+actions on the machine running the gateway, and on a remote gateway "reveal in
+Explorer" opens Explorer on a screen nobody is looking at. They are now Column
+C (family `C8`) with copy that says so, which also removed four false claims
+from the transport debt rather than moving them up it.
+
+This is the second time a route name in this document turned out to describe a
+different capability than its member implied. Reading route tables is not
+evidence; calling them is.
+
 ### Open: the gated ticket leg is still unproven
 
 `POST /api/auth/ws-ticket` answers **401 on loopback** even with a valid header,
@@ -573,7 +625,6 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `oauthLogoutConnectionConfig` | 7 | 5 | GET /api/providers/oauth |
 | `sanitizeWorkspaceCwd` | 7 | 4 | Server-side sanitiser already exists. |
 | `settings` <br>_(3 members)_ | 7 | 4 | /api/fs/default-cwd (get/set). |
-| `revealLogs` | 7 | 7 | /api/env/reveal |
 | `git?` <br>_(10 members)_ | 7 | 6 | GET /api/git/* — measured 200 for status, branches, base-branches, worktrees, file-diff and review/list + review/diff. The full review pane (stage/unstage/revert/commit/push/create-pr/pr-list/ship-info/commit-context) is declared 1:1 in hermes_cli/web_routers/git.py. |
 | `zoom?` <br>_(4 members)_ | 6 | 4 | Client-side; the browser owns zoom. |
 | `gitRoot?` | 6 | 3 | GET /api/fs/git-root — measured 200 with the repo root. |
@@ -584,10 +635,8 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `stopPreviewFileWatch` | 4 | 2 | Client-side handle teardown. |
 | `glassSupported?` | 4 | 2 | Reports a constant `false`: the browser frame is not a native window. A real fact the renderer branches on, not a stub. |
 | `logLine?` | 4 | 3 | POST /api/ops/doctor / /api/ops/debug-share. |
-| `revealPath?` | 4 | 3 | /api/env/reveal |
 | `themes` <br>_(2 members)_ | 4 | 3 | GET /api/dashboard/themes + /api/dashboard/font — both measured 200. |
 | `readPluginSource?` | 3 | 2 | GET /api/config/raw and /api/dashboard/agent-plugins/{name}. |
-| `openDir?` | 3 | 3 | /api/env/reveal |
 | `desktopPluginsRoot?` | 3 | 3 | GET /api/dashboard/plugins |
 | `reconcileDesktopPlugins?` | 3 | 3 | GET /api/dashboard/plugins/rescan — measured 200 {ok,count}. |
 | `terminal` <br>_(8 members)_ | 3 | 2 | /api/pty over WebSocket, measured live: raw PTY bytes both ways (not a JSON envelope) and an in-band [RESIZE:cols;rows] escape the server consumes when it is the whole frame. The child is `hermes --tui`, not a shell. 15262 bytes of real TUI screen on a cold dial. GET /api/tools/terminal/backends answers the probe (measured 200). |
@@ -601,7 +650,6 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `onExternalOpenFailed?` | 2 | 1 | Client-side error state; the browser reports a blocked pop-up itself. |
 | `mcpOauth?` <br>_(3 members)_ | 2 | 2 | /api/mcp/oauth/flows/{flow_id} + /api/mcp/oauth/callback/{server_name}. |
 | `reportRendererError?` <br>_(4 members)_ | 2 | 2 | POST /api/ops/doctor — measured 200. |
-| `logsRoot?` | 2 | 1 | /api/env/reveal |
 | `writeTextFile?` | 2 | 1 | POST /api/fs/write-text |
 | `reachPreviewUrl?` | 2 | 2 | URL resolution — client-side. |
 | `removeDesktopPlugin?` | 2 | 2 | DELETE /api/dashboard/agent-plugins/{name} |
@@ -667,17 +715,20 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `hud?` <br>_(17 members)_ | 21 | 12 | **C2** — Always-on-top overlay windows |
 | `petOverlay` <br>_(9 members)_ | 18 | 2 | **C2** — Always-on-top overlay windows |
 | `quickEntry` <br>_(10 members)_ | 8 | 3 | **C2** — Always-on-top overlay windows |
+| `revealLogs` | 7 | 7 | **C8** — The host OS file manager |
 | `continueBootstrapLocal` | 7 | 2 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `windowRelay?` <br>_(2 members)_ | 6 | 4 | **C1** — Window chrome and multi-window IPC |
 | `windowControls` <br>_(4 members)_ | 6 | 3 | **C1** — Window chrome and multi-window IPC |
 | `revalidateConnection` | 5 | 2 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `touchBackend` | 4 | 2 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `wakeIndicator?` <br>_(3 members)_ | 4 | 3 | **C2** — Always-on-top overlay windows |
+| `revealPath?` | 4 | 3 | **C8** — The host OS file manager |
 | `resetBootstrap` | 4 | 3 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `openWindow` | 3 | 2 | **C1** — Window chrome and multi-window IPC |
 | `hudModifier?` | 3 | 3 | **C2** — Always-on-top overlay windows |
 | `minimizeToTray?` <br>_(3 members)_ | 3 | 3 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `setPreviewGuestHidden?` | 3 | 2 | **C4** — DevTools / F12 and Electron input channels |
+| `openDir?` | 3 | 3 | **C8** — The host OS file manager |
 | `onWindowStateChanged?` | 3 | 3 | **C1** — Window chrome and multi-window IPC |
 | `desktopMetrics?` <br>_(3 members)_ | 3 | 2 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `uninstall` <br>_(2 members)_ | 3 | 2 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
@@ -690,6 +741,7 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `sshResolveHost` | 2 | 1 | **C7** — Host resources the browser cannot reach |
 | `setTranslucency?` | 2 | 2 | **C3** — Native window theming and glass |
 | `setF12ShortcutActive?` | 2 | 1 | **C4** — DevTools / F12 and Electron input channels |
+| `logsRoot?` | 2 | 1 | **C8** — The host OS file manager |
 | `renamePath?` | 2 | 1 | **C7** — Host resources the browser cannot reach |
 | `trashPath?` | 2 | 1 | **C7** — Host resources the browser cannot reach |
 | `repairBootstrap` | 2 | 1 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |

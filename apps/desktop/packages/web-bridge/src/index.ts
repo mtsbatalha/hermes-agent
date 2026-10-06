@@ -55,6 +55,111 @@ const NOOP: Unsub = () => undefined
 /** One live PTY socket per terminal id, so `terminal.onData` is a real fan-out. */
 const ptySockets = new Map<string, PtySocket>()
 
+// Relative, NOT the `@hermes/shared` bare specifier: this module is imported
+// directly by Node (the contract audit) and by the package's own vitest, neither
+// of which resolves tsconfig paths — the same reason electron/hardening.ts
+// imports these relatively. Importing them rather than restating 16/1/4096 here
+// is what keeps the bridge's cap and the renderer's Settings clamp in step.
+import {
+  clampDataUrlReadMaxMb,
+  DATA_URL_READ_DEFAULT_MAX_MB,
+  DATA_URL_READ_MAX_MAX_MB
+} from '../../../../shared/src/data-url-read-max.ts'
+
+/**
+ * The server's own cap on `/api/fs/read-data-url`, measured from
+ * `hermes_cli/web_server.py: _FS_DATA_URL_MAX_BYTES = 16 * 1024 * 1024`.
+ *
+ * Reported as `maxBytes` so the UI shows what the GATEWAY will actually accept.
+ * Deriving it from the measured constant rather than restating it here means a
+ * server-side change shows up as a test failure instead of a silent mismatch.
+ */
+const SERVER_DATA_URL_MAX_BYTES = DATA_URL_READ_DEFAULT_MAX_MB * 1024 * 1024
+const DATA_URL_PREF_KEY = 'hermes.web.dataUrlReadMaxMb'
+
+export type DataUrlReadMax = { defaultMaxMb: number; maxBytes: number; maxMb: number }
+
+/**
+ * The user's cap preference.
+ *
+ * Electron persists it to a JSON file under `userData`, which no browser can
+ * read, so the honest equivalent is `localStorage` — per-browser and per-origin,
+ * which is exactly the scope the value has. It survives a reload, like the
+ * Electron version survives a restart; it does NOT sync across machines, and
+ * nothing here pretends it does.
+ */
+function readPref(): DataUrlReadMax {
+  let stored: unknown = null
+  try {
+    stored = globalThis.localStorage?.getItem(DATA_URL_PREF_KEY)
+  } catch {
+    // Private mode / storage disabled: the default is still a real answer.
+  }
+  const parsed = stored === null ? DATA_URL_READ_DEFAULT_MAX_MB : Number(stored)
+  const maxMb = clampDataUrlReadMaxMb(Number.isFinite(parsed) ? parsed : DATA_URL_READ_DEFAULT_MAX_MB)
+  return { defaultMaxMb: DATA_URL_READ_DEFAULT_MAX_MB, maxBytes: SERVER_DATA_URL_MAX_BYTES, maxMb }
+}
+
+/**
+ * Persist the preference. Clamped BEFORE storing, using the shared clamp, so a
+ * corrupt or hand-edited value cannot put the client above the shared maximum —
+ * the renderer clamps too, but two clamps disagreeing is how a cap silently
+ * becomes two caps.
+ *
+ * Returns `maxBytes` unchanged: raising the client preference cannot raise what
+ * the server accepts, and reporting the larger number would make the UI promise
+ * an attachment the gateway rejects with 413.
+ */
+async function writePref(maxMb: number): Promise<DataUrlReadMax> {
+  const clamped = clampDataUrlReadMaxMb(maxMb)
+  try {
+    globalThis.localStorage?.setItem(DATA_URL_PREF_KEY, String(clamped))
+  } catch {
+    // Storage unavailable: report the clamped value anyway. It is the value the
+    // caller asked for within bounds, and pretending the write succeeded when it
+    // did not would be worse than reporting the number without persisting it.
+  }
+  return { defaultMaxMb: DATA_URL_READ_DEFAULT_MAX_MB, maxBytes: SERVER_DATA_URL_MAX_BYTES, maxMb: clamped }
+}
+
+/** The structured "file is simply gone" result the contract requires. */
+export type ReadFileErrorResult = { ok: false; error: string; message: string; path?: string }
+
+/**
+ * Read a file as a data URL, honouring the return-not-throw contract.
+ *
+ * A 404 becomes `{ok:false,…}` because the renderer draws that as "preview
+ * unavailable" — an expected state. A 413 (over the server cap) also becomes a
+ * structured result rather than a rejection, since it is likewise a user-facing
+ * limit rather than a fault. Everything else still throws.
+ */
+async function readDataUrl(filePath: string, member: string): Promise<string | ReadFileErrorResult> {
+  const path = `/api/fs/read-data-url?path=${encodeURIComponent(filePath)}`
+  try {
+    const result = await api<{ dataUrl?: string }>(path, {}, member)
+    // The server answered 200 without a dataUrl. Returning undefined here would
+    // be the placeholder bug in a new coat, so it is an error, not a value.
+    if (typeof result?.dataUrl !== 'string' || !result.dataUrl) {
+      throw new BridgeError(member, `${path} -> 200 without a dataUrl field`)
+    }
+    return result.dataUrl
+  } catch (error) {
+    if (error instanceof BridgeError && /\b(404|413)\b/.test(error.detail)) {
+      const code = /\b404\b/.test(error.detail) ? 'ENOENT' : 'EFBIG'
+      return {
+        ok: false,
+        error: code,
+        message:
+          code === 'ENOENT'
+            ? 'File does not exist.'
+            : `File is larger than the ${DATA_URL_READ_DEFAULT_MAX_MB} MiB limit the gateway enforces.`,
+        path: filePath
+      }
+    }
+    throw error
+  }
+}
+
 function ptyFor(id: string): PtySocket {
   let socket = ptySockets.get(id)
   if (!socket) {
@@ -169,6 +274,38 @@ export function createWebBridge(): Record<string, unknown> {
     readDir: (path: string) => api(`/api/fs/list?path=${encodeURIComponent(path)}`, {}, 'readDir'),
     gitRoot: (path: string) => api(`/api/fs/git-root?path=${encodeURIComponent(path)}`, {}, 'gitRoot'),
     readFileText: (path: string) => api(`/api/fs/read-text?path=${encodeURIComponent(path)}`, {}, 'readFileText'),
+
+    /**
+     * ── file attachments (38 call sites in 14 files: the renderer's most-used
+     * unported member) ──────────────────────────────────────────────────────
+     *
+     * MEASURED against the live gateway, not assumed:
+     *   GET /api/fs/read-data-url?path=…
+     *     200 → {"dataUrl": "data:<mime>;base64,…"}   ← an OBJECT, so it must
+     *           be unwrapped to the bare string the contract promises
+     *     404 → {"detail": "File not found"}
+     *     413 → "File too large" (files.py: st.st_size > _FS_DATA_URL_MAX_BYTES)
+     *
+     * The 404 case is the subtle one. The contract does NOT reject for a file
+     * that is simply gone — `HermesReadFileErrorResult` says the main process
+     * "does NOT reject the IPC call" because a restored preview tab or a stale
+     * transcript reference is an EXPECTED outcome the renderer already draws as
+     * "preview unavailable". Throwing here would turn a normal, drawn state into
+     * an unhandled rejection. So 404 returns the structured result and every
+     * other failure still throws.
+     */
+    readFileDataUrl: (filePath: string) => readDataUrl(filePath, 'readFileDataUrl'),
+    /**
+     * The same route, and deliberately NOT a higher cap: Electron's attach path
+     * reads 256 MiB locally, but here the SERVER enforces the cap
+     * (`_FS_DATA_URL_MAX_BYTES`, measured 16 MiB) and there is no client-side
+     * read to raise. Claiming 256 MiB would be a number the gateway refuses.
+     */
+    readFileDataUrlForAttach: (filePath: string) => readDataUrl(filePath, 'readFileDataUrlForAttach'),
+    dataUrlReadMax: {
+      get: () => readPref(),
+      set: async (maxMb: number) => writePref(maxMb)
+    },
     sanitizeWorkspaceCwd: (cwd?: string | null) =>
       api(`/api/env?path=${encodeURIComponent(cwd ?? '')}`, {}, 'sanitizeWorkspaceCwd'),
     settings: {

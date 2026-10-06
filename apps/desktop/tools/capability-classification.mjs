@@ -70,16 +70,14 @@ export const A = {
   sanitizeWorkspaceCwd: 'Server-side sanitiser already exists.',
   settings: '/api/fs/default-cwd (get/set).',
   zoom: 'Client-side; the browser owns zoom.',
-  revealLogs: '/api/env/reveal',
   reportRendererError: 'POST /api/ops/doctor — measured 200.',
   logLine: 'POST /api/ops/doctor / /api/ops/debug-share.',
   readDir: 'GET /api/fs/list — measured 200 with real entries.',
   gitRoot: 'GET /api/fs/git-root — measured 200 with the repo root.',
-  revealPath: '/api/env/reveal',
-  openDir: '/api/env/reveal',
+
   desktopPluginsRoot: 'GET /api/dashboard/plugins',
   reconcileDesktopPlugins: 'GET /api/dashboard/plugins/rescan — measured 200 {ok,count}.',
-  logsRoot: '/api/env/reveal',
+
   writeTextFile: 'POST /api/fs/write-text',
   git: 'GET /api/git/* — measured 200 for status, branches, base-branches, worktrees, file-diff and review/list + review/diff. The full review pane (stage/unstage/revert/commit/push/create-pr/pr-list/ship-info/commit-context) is declared 1:1 in hermes_cli/web_routers/git.py.',
   terminal:
@@ -168,6 +166,22 @@ export const C = {
   setNativeTheme: 'C3',
   setTranslucency: 'C3',
 
+  // CORRECTED in Phase 3. These four were classified A with the endpoint
+  // `/api/env/reveal`, which is wrong in a way that matters: that route reveals
+  // the UNREDACTED value of ONE ENVIRONMENT VARIABLE, rate-limited to 5 per 30s
+  // and audit-logged (web_routers/config_env.py). Wiring `revealLogs` to it
+  // would POST a secret-unmasking request instead of opening a folder.
+  //
+  // The real Electron implementations are `shell.showItemInFolder` /
+  // `shell.openPath` — OS file-manager actions on the host. Measured: there is
+  // NO server route for either. On a remote gateway "reveal in Explorer" opens
+  // Explorer on a screen nobody is looking at, so C with honest copy is the
+  // truthful column, not a convenient one.
+  revealLogs: 'C8',
+  revealPath: 'C8',
+  openDir: 'C8',
+  logsRoot: 'C8',
+
   setDisableF12: 'C4',
   setF12ShortcutActive: 'C4',
   onF12Shortcut: 'C4',
@@ -242,5 +256,9 @@ export const FAMILIES = {
   C7: {
     title: 'Host resources the browser cannot reach',
     copy: 'SSH config, the OS trash, the OS keychain, cross-window metadata and host log lines have no browser counterpart. /api/ssh/ownership exists but answers "SSH ownership is not active", so the SSH pair is cut on measurement, not on principle. Each surfaces an explicit "Not available in the web client" line rather than an empty list that reads as a bug.'
+  },
+  C8: {
+    title: 'The host OS file manager',
+    copy: 'Revealing a path or opening a folder is an action on the machine that runs the gateway, and there is no server route for it — /api/env/reveal is a different thing entirely: it unmasks one environment variable, rate-limited and audit-logged. On a remote gateway the button would open Explorer on a screen nobody is looking at, so it is removed rather than quietly wired to the wrong endpoint. The path itself still shows, so it can be copied and opened wherever the file actually lives.'
   }
 }

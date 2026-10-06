@@ -190,18 +190,12 @@ export const BRIDGE_STATUS: Record<string, CapabilityRecord> = {
     kind: 'cut',
     copy: 'SSH config, the OS trash, the OS keychain, cross-window metadata and host log lines have no browser counterpart. /api/ssh/ownership exists but answers "SSH ownership is not active", so the SSH pair is cut on measurement, not on principle. Each surfaces an explicit "Not available in the web client" line rather than an empty list that reads as a bug.'
   },
-  readFileDataUrl: {
-    kind: 'cut',
-    copy: 'Not wired on the web bridge yet — GET /api/fs/read-data-url — measured 200 with a real data URL. The capability exists; this client does not call it yet.'
-  },
+  readFileDataUrl: { kind: 'transport', endpoint: 'GET /api/fs/read-data-url — measured 200 with a real data URL.' },
   readFileDataUrlForAttach: {
-    kind: 'cut',
-    copy: 'Not wired on the web bridge yet — GET /api/fs/read-data-url (the server enforces the lower cap). The capability exists; this client does not call it yet.'
+    kind: 'transport',
+    endpoint: 'GET /api/fs/read-data-url (the server enforces the lower cap).'
   },
-  dataUrlReadMax: {
-    kind: 'cut',
-    copy: 'Not wired on the web bridge yet — Server cap + a client pref. The capability exists; this client does not call it yet.'
-  },
+  dataUrlReadMax: { kind: 'transport', endpoint: 'Server cap + a client pref.' },
   readFileText: {
     kind: 'transport',
     endpoint: 'GET /api/fs/read-text — measured 200 with byteSize/language/mimeType.'
@@ -372,7 +366,7 @@ export const BRIDGE_STATUS: Record<string, CapabilityRecord> = {
   },
   revealLogs: {
     kind: 'cut',
-    copy: 'Not wired on the web bridge yet — /api/env/reveal The capability exists; this client does not call it yet.'
+    copy: 'Revealing a path or opening a folder is an action on the machine that runs the gateway, and there is no server route for it — /api/env/reveal is a different thing entirely: it unmasks one environment variable, rate-limited and audit-logged. On a remote gateway the button would open Explorer on a screen nobody is looking at, so it is removed rather than quietly wired to the wrong endpoint. The path itself still shows, so it can be copied and opened wherever the file actually lives.'
   },
   getRecentLogs: {
     kind: 'transport',
@@ -385,11 +379,11 @@ export const BRIDGE_STATUS: Record<string, CapabilityRecord> = {
   gitRoot: { kind: 'transport', endpoint: 'GET /api/fs/git-root — measured 200 with the repo root.' },
   revealPath: {
     kind: 'cut',
-    copy: 'Not wired on the web bridge yet — /api/env/reveal The capability exists; this client does not call it yet.'
+    copy: 'Revealing a path or opening a folder is an action on the machine that runs the gateway, and there is no server route for it — /api/env/reveal is a different thing entirely: it unmasks one environment variable, rate-limited and audit-logged. On a remote gateway the button would open Explorer on a screen nobody is looking at, so it is removed rather than quietly wired to the wrong endpoint. The path itself still shows, so it can be copied and opened wherever the file actually lives.'
   },
   openDir: {
     kind: 'cut',
-    copy: 'Not wired on the web bridge yet — /api/env/reveal The capability exists; this client does not call it yet.'
+    copy: 'Revealing a path or opening a folder is an action on the machine that runs the gateway, and there is no server route for it — /api/env/reveal is a different thing entirely: it unmasks one environment variable, rate-limited and audit-logged. On a remote gateway the button would open Explorer on a screen nobody is looking at, so it is removed rather than quietly wired to the wrong endpoint. The path itself still shows, so it can be copied and opened wherever the file actually lives.'
   },
   desktopPluginsRoot: { kind: 'transport', endpoint: 'GET /api/dashboard/plugins' },
   reconcileDesktopPlugins: {
@@ -398,7 +392,7 @@ export const BRIDGE_STATUS: Record<string, CapabilityRecord> = {
   },
   logsRoot: {
     kind: 'cut',
-    copy: 'Not wired on the web bridge yet — /api/env/reveal The capability exists; this client does not call it yet.'
+    copy: 'Revealing a path or opening a folder is an action on the machine that runs the gateway, and there is no server route for it — /api/env/reveal is a different thing entirely: it unmasks one environment variable, rate-limited and audit-logged. On a remote gateway the button would open Explorer on a screen nobody is looking at, so it is removed rather than quietly wired to the wrong endpoint. The path itself still shows, so it can be copied and opened wherever the file actually lives.'
   },
   agentPluginsRoot: {
     kind: 'cut',
