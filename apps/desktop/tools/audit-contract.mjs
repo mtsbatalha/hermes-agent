@@ -25,9 +25,10 @@
  * matrix states: the renderer aliases the bridge to `desktop`/`bridge`, so a
  * spelled-only pass undercounts members by 24.
  */
-import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { A, B, C, FAMILIES } from './capability-classification.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -175,20 +176,133 @@ for (const name of previouslyImplemented) {
 const counts = { A: 0, B: 0, C: 0 }
 for (const v of assigned.values()) counts[v.col]++
 
+// ── 4b. the web bridge is COMPLETE: implemented or explicitly cut ───────────
+//
+// The spike's Proxy made every member look present, so "is this supported?"
+// had no answer and the renderer picked a routing branch on a capability that
+// did not exist. Completeness is an invariant here, not a promise: every
+// declared member is a real transport/browser member on the bridge object, or
+// it carries a cut record with the copy the UI shows instead.
+let bridge = null
+try {
+  bridge = await import(pathToFileURL(path.join(DESKTOP, 'web/bridge/index.ts')).href)
+} catch (error) {
+  failures.push(`WEB BRIDGE UNREADABLE      ${error.message}`)
+}
+
+// Vite STRIPS types without checking them, so a type error in the bridge is
+// invisible to the build and only shows up as a wrong value at runtime — which
+// is how a nullable `this.socket` and a `never`-narrowed handle survived long
+// enough to be measured here. `web/` is outside the renderer tsconfig, so this
+// gate is the only thing that typechecks it.
+if (bridge) {
+  try {
+    const tsc = path.join(DESKTOP, '../../node_modules/typescript/bin/tsc')
+    await new Promise((resolve, reject) => {
+      const child = spawnSync(
+        process.execPath,
+        [
+          tsc,
+          '--noEmit',
+          '--ignoreConfig',
+          '--skipLibCheck',
+          '--target',
+          'es2022',
+          '--module',
+          'esnext',
+          '--moduleResolution',
+          'bundler',
+          '--allowImportingTsExtensions',
+          path.join(DESKTOP, 'web/bridge/index.ts')
+        ],
+        { encoding: 'utf8' }
+      )
+      if (child.status === 0) resolve()
+      else reject(new Error((child.stdout || child.stderr || '').trim().split('\n').slice(0, 6).join('\n    ')))
+    })
+    log('types:    web/bridge typechecks clean')
+  } catch (error) {
+    failures.push(`BRIDGE TYPE ERROR         ${error.message}`)
+  }
+}
+
+let bridgeCounts = null
+if (bridge) {
+  const status = bridge.BRIDGE_STATUS ?? {}
+  const live = new Set(bridge.IMPLEMENTED_MEMBERS ?? [])
+  const ledger = bridge.BRIDGE_LEDGER ?? []
+
+  for (const m of members) {
+    const record = status[m.name]
+    if (!record) {
+      failures.push(
+        `BRIDGE INCOMPLETE         ${m.name} is declared, has no web-bridge record, and is not marked as a cut`
+      )
+      continue
+    }
+    const isLive = live.has(m.name)
+    if (record.kind === 'cut') {
+      if (isLive) failures.push(`BRIDGE CONTRADICTION     ${m.name} is marked a cut but is also implemented`)
+      if (!record.copy || !record.copy.trim())
+        failures.push(`CUT WITHOUT COPY          ${m.name} has no user-facing copy`)
+    } else if (!isLive) {
+      failures.push(
+        `BRIDGE INCOMPLETE         ${m.name} claims to be a ${record.kind} but is absent from the bridge object`
+      )
+    }
+    if (record.kind !== 'cut' && !record.endpoint) {
+      failures.push(`NO ENDPOINT STATED        ${m.name} is implemented without naming what backs it`)
+    }
+  }
+  for (const name of live) {
+    if (!declared.has(name))
+      failures.push(`BRIDGE EXTRA             ${name} is implemented but not declared by the contract`)
+  }
+  for (const name of Object.keys(status)) {
+    if (!declared.has(name))
+      failures.push(`STALE BRIDGE KEY         ${name} is in BRIDGE_STATUS but no longer declared`)
+  }
+  if (ledger.length !== members.length) {
+    failures.push(
+      `LEDGER LENGTH            BRIDGE_LEDGER has ${ledger.length} entries, the contract declares ${members.length}`
+    )
+  }
+  const kind = { transport: 0, browser: 0, cut: 0 }
+  for (const m of members) if (status[m.name]) kind[status[m.name].kind]++
+  bridgeCounts = kind
+}
+
 log(`contract: ${members.length} members (${members.filter(m => m.optional).length} optional)`)
 log(
   `usage:    ${[...uses.keys()].filter(k => uses.get(k) > 0).length} members reached, ${[...uses.values()].reduce((a, b) => a + b, 0)} call sites`
 )
 log(`columns:  A=${counts.A} B=${counts.B} C=${counts.C}`)
 log(`preload:  ${implemented.size} of ${members.length} declared members implemented in Electron`)
+if (bridgeCounts) {
+  const liveCount = bridgeCounts.transport + bridgeCounts.browser
+  log(
+    `web:      ${liveCount}/${members.length} live on the bridge (${bridgeCounts.transport} transport, ${bridgeCounts.browser} browser), ${bridgeCounts.cut} cut`
+  )
+  const debt = members.filter(m => {
+    const col = assigned.get(m.name)?.col
+    return col !== 'C' && bridge.BRIDGE_STATUS[m.name]?.kind === 'cut'
+  }).length
+  if (debt)
+    log(`          transport debt: ${debt} members the matrix calls web-native that the bridge does not implement yet`)
+}
 log(`spelled-only distinct members (the undercount): ${spelled.size}`)
 
+// Report, but do NOT exit yet: --write regenerates the appendix and the bridge
+// manifest below, and several failures (a member classified as a cut while the
+// bridge serves it, a member with no endpoint) are exactly what regenerating
+// fixes. Exiting here made --write unable to repair its own failures. The exit
+// code is still 1 — the run fails loudly, it just also leaves the files fixed.
 if (failures.length) {
   console.error(`\nFAIL — ${failures.length} problem(s):`)
   for (const f of failures) console.error(`  ${f}`)
-  process.exit(1)
+} else {
+  log('\nOK — every declared member has exactly one column, every cut has a family')
 }
-log('\nOK — every declared member has exactly one column, every cut has a family')
 
 // ── 5. regenerate the appendix ─────────────────────────────────────────────
 const order = col =>
@@ -230,3 +344,110 @@ if (next === matrix) {
   console.error('\nFAIL — the appendix in CAPABILITY-MATRIX.md is stale. Run with --write.')
   process.exit(1)
 }
+
+// ── 6. web/bridge/manifest.ts is GENERATED from this same classification ────
+//
+// It used to be produced by a scratch script kept outside the repo, so the
+// ledger's `endpoint` copy could drift from the classification that the audit
+// enforces — the terminal member kept claiming "GET /api/pty" long after the
+// wire protocol was measured. Generating it here makes that impossible: one
+// source, one writer, and a stale manifest fails the run like a stale appendix.
+//
+// Two inputs, deliberately kept apart:
+//
+//   KIND      comes from the BRIDGE (is the member actually on the object?),
+//             not from the column. A/B/C is the plan; `IMPLEMENTED_MEMBERS` is
+//             the fact, and conflating them made `getPoolLimits` read as a cut
+//             while the bridge was serving it.
+//   WORDING   comes from the classification, so the endpoint a member names
+//             cannot rot independently of the matrix.
+//
+// That split also fixes an honesty bug the hand-built manifest had: `git` was
+// recorded as a cut with the copy "Not available in the web client" while
+// /api/git/* answers 200. A column-A member that the bridge has simply not
+// reached yet is not unavailable — it is unwired, and the copy says so and
+// names the endpoint that would back it.
+const MANIFEST = path.join(DESKTOP, 'web/bridge/manifest.ts')
+const liveMembers = new Set(bridge?.IMPLEMENTED_MEMBERS ?? [])
+const statusRecord = m => {
+  const v = assigned.get(m.name)
+  if (!v) return null
+  if (liveMembers.has(m.name)) {
+    return v.col === 'B' ? { kind: 'browser', endpoint: v.note } : { kind: 'transport', endpoint: v.note }
+  }
+  if (v.col === 'C') {
+    return { kind: 'cut', copy: FAMILIES[v.family]?.copy || v.note || 'Not available in the web client.' }
+  }
+  return {
+    kind: 'cut',
+    copy: `Not wired on the web bridge yet — ${v.note} The capability exists; this client does not call it yet.`
+  }
+}
+
+const manifestSource = [
+  '/**',
+  ' * The 157-member ledger for the web bridge. GENERATED by',
+  ' * tools/audit-contract.mjs --write.',
+  ' *',
+  ' * Do not hand-edit: run `node tools/audit-contract.mjs --write`.',
+  ' *',
+  ' * Two inputs, deliberately kept apart:',
+  ' *   kind     read off the BRIDGE — a member is `transport`/`browser` only',
+  ' *            while it is actually present on the object in index.ts, and',
+  ' *            `cut` the moment it is not. This is what stops a column-A',
+  ' *            member from being advertised as working before it is wired.',
+  ' *   wording  read off tools/capability-classification.mjs, so the endpoint a',
+  ' *            member names cannot rot apart from CAPABILITY-MATRIX.md.',
+  ' */',
+  '',
+  "import type { CapabilityRecord } from './unsupported.ts'",
+  '',
+  'export const BRIDGE_STATUS: Record<string, CapabilityRecord> = {',
+  ...members.map(m => `  ${m.name}: ${JSON.stringify(statusRecord(m))},`),
+  '}',
+  '',
+  '/** Every member the contract declares, in declaration order. */',
+  'export const BRIDGE_LEDGER: readonly string[] = [',
+  ...members.map(m => `  '${m.name}',`),
+  ']',
+  ''
+].join('\n')
+
+// Formatted with the project's own prettier before it is compared, so this
+// generator and `prettier --check` cannot disagree. They did exactly that once:
+// the audit wrote a file prettier then reformatted, and the audit called its own
+// output stale on the next run. A generator that fights the formatter trains
+// people to ignore both.
+const PRETTIER = path.join(DESKTOP, '../../node_modules/prettier')
+let manifestBody = manifestSource
+try {
+  const prettier = (await import(pathToFileURL(path.join(PRETTIER, 'index.mjs')).href)).default
+  manifestBody = await prettier.format(manifestSource, {
+    ...JSON.parse(readFileSync(path.join(DESKTOP, '../../.prettierrc'), 'utf8')),
+    parser: 'typescript'
+  })
+} catch (error) {
+  // Prettier missing is not a reason to fail the audit; the unformatted text
+  // still round-trips, and `--check` will say so on its own.
+  log(`manifest: prettier unavailable (${error.message}); writing unformatted`)
+}
+
+const currentManifest = existsSync(MANIFEST) ? readFileSync(MANIFEST, 'utf8') : null
+if (currentManifest === manifestBody) {
+  log('manifest: up to date')
+} else if (write) {
+  writeFileSync(MANIFEST, manifestBody)
+  log('manifest: rewritten')
+} else {
+  failures.push('BRIDGE MANIFEST STALE   web/bridge/manifest.ts does not match the classification. Run with --write.')
+}
+
+// The verdict is settled LAST, after both generated files have been checked, so
+// a run either reports every problem or repairs what it can — never repairs
+// half and exits before saying so.
+if (failures.length) {
+  console.error(`\nFAIL — ${failures.length} problem(s):`)
+  for (const f of failures.slice(0, 40)) console.error(`  ${f}`)
+  process.exit(1)
+}
+log('\nOK — contract, classification, bridge and generated files all agree')

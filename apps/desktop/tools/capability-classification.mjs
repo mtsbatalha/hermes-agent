@@ -42,6 +42,30 @@ export const A = {
   cloud: 'Portal login round-trip; discovery is a REST call.',
   profile: '/api/profiles/active + ?profile=; `set` becomes client state plus the profile selector.',
   onExternalOpenFailed: 'Client-side error state; the browser reports a blocked pop-up itself.',
+
+  // Reclassified out of C in Phase 2. Each is a NON-OPTIONAL contract member the
+  // renderer calls UNGUARDED at module load, so cutting it threw during import
+  // and the app never finished booting — that is what the first real-bridge run
+  // exposed. They are also genuinely answerable, so "cut" was never the honest
+  // description: each names what actually backs it here.
+  glassSupported:
+    'Reports a constant `false`: the browser frame is not a native window. A real fact the renderer branches on, not a stub.',
+  translucencySupported: 'Reports a constant `false`: there is no native chrome to make translucent.',
+  onBackendExit: 'Real subscription fed by the gateway socket close — the only exit signal a browser client gets.',
+  getPoolLimits: 'Client-side constant: this client owns no backend pool, so it reports one gateway.',
+  setPoolLimits: 'Rejected with `ok:false` and the current limits: the pool belongs to the host running the gateway.',
+  getBootProgress:
+    'Reports `running:false, progress:1` — a browser client attaches to a gateway somebody else installed, so it is ready the moment the socket opens.',
+  onBootProgress: 'Live subscription with no host source: nothing to install means nothing to report.',
+  getBootstrapState:
+    'Reports `active:false`: bootstrap is inapplicable to a client that attaches to a running gateway.',
+  onBootstrapEvent: 'Live subscription with no host source, for the same reason as getBootstrapState.',
+  // Scoped honestly: NOT the host's log files (those stay C7 — /api/ssh/ownership
+  // measured 404 "SSH ownership is not active"). This is the renderer-visible
+  // trace ring buffer, and `path` reports "in-page" so the source can never be
+  // mistaken for a file on disk.
+  getRecentLogs:
+    'In-page trace ring buffer fed by logLine. `path` reports "in-page" so it is never mistaken for the host log files.',
   mcpOauth: '/api/mcp/oauth/flows/{flow_id} + /api/mcp/oauth/callback/{server_name}.',
   sanitizeWorkspaceCwd: 'Server-side sanitiser already exists.',
   settings: '/api/fs/default-cwd (get/set).',
@@ -58,7 +82,8 @@ export const A = {
   logsRoot: '/api/env/reveal',
   writeTextFile: 'POST /api/fs/write-text',
   git: 'GET /api/git/* — measured 200 for status, branches, base-branches, worktrees, file-diff and review/list + review/diff. The full review pane (stage/unstage/revert/commit/push/create-pr/pr-list/ship-info/commit-context) is declared 1:1 in hermes_cli/web_routers/git.py.',
-  terminal: '/api/pty over WebSocket; GET /api/tools/terminal/backends answers the probe (measured 200).',
+  terminal:
+    '/api/pty over WebSocket, measured live: raw PTY bytes both ways (not a JSON envelope) and an in-band \x1b[RESIZE:cols;rows] escape the server consumes when it is the whole frame. The child is `hermes --tui`, not a shell. 15262 bytes of real TUI screen on a cold dial. GET /api/tools/terminal/backends answers the probe (measured 200).',
   reachPreviewUrl: 'URL resolution — client-side.',
   setActiveConnectionRoute: 'Client-side route state.',
   onOpenFolderRequested: 'Becomes a route plus /api/env/reveal.',
@@ -142,8 +167,6 @@ export const C = {
   setTitleBarTheme: 'C3',
   setNativeTheme: 'C3',
   setTranslucency: 'C3',
-  glassSupported: 'C3',
-  translucencySupported: 'C3',
 
   setDisableF12: 'C4',
   setF12ShortcutActive: 'C4',
@@ -163,21 +186,15 @@ export const C = {
   minimizeToTray: 'C6',
   relaunchApp: 'C6',
   uninstall: 'C6',
-  onBackendExit: 'C6',
   onPoolBackendRetiring: 'C6',
   onConnectionApplied: 'C6',
   revalidateConnection: 'C6',
   touchBackend: 'C6',
-  getPoolLimits: 'C6',
-  setPoolLimits: 'C6',
-  getBootProgress: 'C6',
-  onBootProgress: 'C6',
-  getBootstrapState: 'C6',
+
   continueBootstrapLocal: 'C6',
   resetBootstrap: 'C6',
   repairBootstrap: 'C6',
   cancelBootstrap: 'C6',
-  onBootstrapEvent: 'C6',
   getSyncStatus: 'C6',
   agentPluginsRoot: 'C6',
   desktopMetrics: 'C6',
@@ -188,7 +205,6 @@ export const C = {
   sshResolveHost: 'C7',
   renamePath: 'C7',
   trashPath: 'C7',
-  getRecentLogs: 'C7',
   getSecretStorageEncryption: 'C7',
   setSecretStorageEncryption: 'C7'
 }

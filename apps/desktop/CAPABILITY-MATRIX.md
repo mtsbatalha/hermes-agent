@@ -216,6 +216,66 @@ sections that follow now answer them. What is left is short:
    puts a credential in the URL — so the client must ship with loopback labelled a
    development mode. See *the gated ticket leg*.
 
+## Phase 2 — the WebBridge, as built and as measured
+
+The bridge replaces the spike's hand-written `Proxy`. It lives in `web/bridge/`
+and is a plain object literal — no `get` trap, no `has` trap, no placeholder:
+every one of its members is either a real same-origin transport or a browser API
+that genuinely works, and the rest are **absent** so the renderer's own
+optional-chaining guard takes the "not here" branch.
+
+**43 of 157 members are live** (37 transport, 6 browser); **114 are cut**. The
+other 60 column-A members are web-native in principle and not yet wired — the
+audit prints that number every run as `transport debt`, so it cannot quietly
+become 61.
+
+Three properties are enforced, not promised. `tools/audit-contract.mjs` fails
+the build when:
+
+- a declared member is neither implemented nor marked a cut (`BRIDGE INCOMPLETE`)
+- a member is marked a cut *and* implemented (`BRIDGE CONTRADICTION`)
+- a cut carries no user-facing copy (`CUT WITHOUT COPY`)
+- an implemented member names no endpoint (`NO ENDPOINT STATED`)
+- the bridge implements something the contract does not declare (`BRIDGE EXTRA`)
+- the ledger and the generated manifest disagree with the classification
+  (`LEDGER LENGTH`, `BRIDGE MANIFEST STALE`)
+
+`IMPLEMENTED_MEMBERS` is **derived** from the bridge object, not maintained
+beside it. A hand-written list is a second source of truth, and it drifted once
+already: deleting a member from the object left it listed as implemented and the
+audit passed. Reading the keys off the object makes "implemented" and "present"
+the same fact.
+
+`capabilities()` is what the UI asks instead of probing members with `in`, which
+is what the spike's Proxy made impossible: `{ bridge, missing, kindOf, surfaces }`.
+
+### The terminal: measured, and it is not what the first draft assumed
+
+The bridge's first `PtySocket` spoke a JSON envelope it had invented
+(`{type:'start'|'input'|'resize'}`). That was wrong, and only the wire could say
+so. `/api/pty` (`hermes_cli/web_routers/chat_ws.py`) is a **raw byte pump**:
+`ws.send_bytes(chunk)` outbound, `msg["bytes"]` inbound. The invented JSON
+would have been written straight into the child's stdin as literal text — a
+socket that opened, spawned a TUI, and could not be typed into.
+
+What the client sends, measured:
+
+| | |
+|---|---|
+| frames both ways | raw bytes, no envelope |
+| resize | in-band `\x1b[RESIZE:<cols>;<rows>]`, consumed server-side, and **only when it is the whole frame** (`_RESIZE_RE` + `match.end() == len(raw)`) — appended to a keystroke it reaches the PTY as text |
+| the child | `hermes --tui`, not a shell |
+| JSON the server sends | `{"type":"resume","id":…}`, an implicit session replay |
+| start failure | human-readable text, then close 1011 |
+| auth | the same `?token=` query leg as `/api/ws` |
+
+Exercised through the bridge's own `terminal` member in a real browser against
+the live gateway: **6229 bytes** of TUI screen on start, a typed keystroke grew
+the stream, a resize produced a full redraw (7815 → 12692 bytes, which is what
+proves the server consumed the escape rather than echoing it), and `dispose`
+closed the socket. `cwd` returns `null` — the Desktop contract already scopes
+that probe to POSIX, and there is no child handle here to ask.
+
 ## Measured: the routes this matrix promises, actually called
 
 Reading route names is not evidence. Every promise below was exercised against
@@ -370,8 +430,18 @@ column closes like this:
 
 ```bash
 npm run check:contract                  # wired into `npm run check`; exit 1 on any drift
-node tools/audit-contract.mjs --write   # verify, then regenerate the appendix
+node tools/audit-contract.mjs --write   # verify, then regenerate appendix + bridge manifest
 ```
+
+`--write` regenerates **two** files: this document's appendix and
+`web/bridge/manifest.ts`. The manifest used to be produced by a scratch script
+kept outside the repo, which is how `terminal` went on claiming `GET /api/pty`
+long after the wire protocol had been measured. One writer, one source.
+
+The generator runs its own output through the project's prettier before
+comparing. It has to: the audit wrote a file prettier then reformatted, and the
+next run called the audit's own output stale. A generator that fights the
+formatter teaches people to ignore both.
 
 A gate nothing runs is not a gate, so `check:contract` is the first step of
 `npm run check`: a change to the bridge that is not reclassified fails the chain
@@ -383,8 +453,30 @@ before lint or a single test runs.
 is added without a column, when one is classified twice, when a cut has no family
 or a family has no copy, when a key names a member that no longer exists, when an
 A/B member has no stated replacement, or when a row in the generated region has
-been hand-edited. All five failure modes are demonstrated in this commit's
-message.
+been hand-edited, and when the bridge and the ledger disagree about a member.
+The failure modes are demonstrated by re-breaking them, not asserted.
+
+`--write` reports problems but does not exit before regenerating. Several
+failures — a member classified as a cut while the bridge serves it, a member
+with no endpoint — are exactly what regenerating repairs, so exiting first made
+`--write` unable to fix its own failures. The exit code is still 1.
+
+**Ten members moved out of Column C during Phase 2**, and that is the audit
+working rather than the audit bending. `onBackendExit`, `onBootProgress`,
+`onBootstrapEvent`, `getPoolLimits`, `setPoolLimits`, `getBootProgress`,
+`getBootstrapState`, `glassSupported`, `translucencySupported` and
+`getRecentLogs` were all classified "cut" in the first draft. They are not
+optional in the contract and the renderer calls several of them **unguarded at
+module load** — so cutting them threw during import and the app never finished
+booting. That is exactly what the first real-bridge run showed. Each is
+genuinely answerable (a constant, a live subscription, a rejected write), so
+"cut" was never the honest description; they are Column A now, each naming what
+backs it.
+
+`getRecentLogs` deserves the note: it is **not** the host's log files. Those stay
+C7 — `/api/ssh/ownership` measured 404 `SSH ownership is not active`. The
+bridge returns the renderer-visible trace ring buffer and reports
+`path: "in-page"`, so the source can never be mistaken for a file on disk.
 
 It also reports something the hand-written version could not: **preload.ts
 implements 155 of the 157 declared members.** The two it does not are
@@ -425,6 +517,7 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `probeConnectionConfig` | 14 | 6 | Server-side reachability probe. |
 | `saveGatewayFile?` <br>_(8 members)_ | 13 | 6 | GET /api/files/download — the HOST writes; the browser needs no path picker. |
 | `readDir` | 12 | 3 | GET /api/fs/list — measured 200 with real entries. |
+| `getBootProgress` | 11 | 2 | Reports `running:false, progress:1` — a browser client attaches to a gateway somebody else installed, so it is ready the moment the socket opens. |
 | `testConnectionConfig` | 11 | 5 | Reachability probe against the saved descriptor. |
 | `updates` <br>_(8 members)_ | 11 | 4 | GET /api/hermes/update/check — measured 200. Branch/packaging members are Desktop-only and get no UI. |
 | `getAgentRoster?` | 10 | 7 | Union roster over registered connections → /api/profiles. |
@@ -442,6 +535,7 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `dataUrlReadMax?` <br>_(2 members)_ | 4 | 2 | Server cap + a client pref. |
 | `normalizePreviewTarget` | 4 | 3 | Pure URL logic — runs in the browser as-is. |
 | `stopPreviewFileWatch` | 4 | 2 | Client-side handle teardown. |
+| `glassSupported?` | 4 | 2 | Reports a constant `false`: the browser frame is not a native window. A real fact the renderer branches on, not a stub. |
 | `logLine?` | 4 | 3 | POST /api/ops/doctor / /api/ops/debug-share. |
 | `revealPath?` | 4 | 3 | /api/env/reveal |
 | `themes` <br>_(2 members)_ | 4 | 3 | GET /api/dashboard/themes + /api/dashboard/font — both measured 200. |
@@ -449,13 +543,14 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `openDir?` | 3 | 3 | /api/env/reveal |
 | `desktopPluginsRoot?` | 3 | 3 | GET /api/dashboard/plugins |
 | `reconcileDesktopPlugins?` | 3 | 3 | GET /api/dashboard/plugins/rescan — measured 200 {ok,count}. |
-| `terminal` <br>_(8 members)_ | 3 | 2 | /api/pty over WebSocket; GET /api/tools/terminal/backends answers the probe (measured 200). |
+| `terminal` <br>_(8 members)_ | 3 | 2 | /api/pty over WebSocket, measured live: raw PTY bytes both ways (not a JSON envelope) and an in-band [RESIZE:cols;rows] escape the server consumes when it is the whole frame. The child is `hermes --tui`, not a shell. 15262 bytes of real TUI screen on a cold dial. GET /api/tools/terminal/backends answers the probe (measured 200). |
 | `probePluginRepo?` <br>_(8 members)_ | 3 | 2 | GET /api/dashboard/plugins/catalog |
 | `installDesktopPlugin?` <br>_(3 members)_ | 3 | 2 | POST /api/dashboard/agent-plugins/install |
 | `onPreviewFileChanged` | 3 | 2 | Same poll/events seam as watchPreviewFile. |
 | `readFileText` | 2 | 1 | GET /api/fs/read-text — measured 200 with byteSize/language/mimeType. |
 | `watchPreviewFile` | 2 | 2 | No OS watcher in a browser: poll /api/fs/read-text or ride /api/events. |
 | `watchDirectory?` | 2 | 1 | Same poll/events seam as watchPreviewFile. |
+| `translucencySupported?` | 2 | 1 | Reports a constant `false`: there is no native chrome to make translucent. |
 | `onExternalOpenFailed?` | 2 | 1 | Client-side error state; the browser reports a blocked pop-up itself. |
 | `mcpOauth?` <br>_(3 members)_ | 2 | 2 | /api/mcp/oauth/flows/{flow_id} + /api/mcp/oauth/callback/{server_name}. |
 | `reportRendererError?` <br>_(4 members)_ | 2 | 2 | POST /api/ops/doctor — measured 200. |
@@ -465,15 +560,22 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `removeDesktopPlugin?` | 2 | 2 | DELETE /api/dashboard/agent-plugins/{name} |
 | `probeLocalBackend?` | 2 | 2 | GET /api/health answers "is a gateway already up" — measured 200. |
 | `recycleBackend?` | 2 | 2 | POST /api/gateway/restart |
+| `onBootstrapEvent` | 2 | 1 | Live subscription with no host source, for the same reason as getBootstrapState. |
 | `getVersion` | 2 | 2 | GET /api/status — measured 200. |
 | `getMachineProfile?` | 2 | 2 | GET /api/host/identity — measured 200. |
+| `getPoolLimits` | 1 | 1 | Client-side constant: this client owns no backend pool, so it reports one gateway. |
+| `setPoolLimits` <br>_(2 members)_ | 1 | 1 | Rejected with `ok:false` and the current limits: the pool belongs to the host running the gateway. |
 | `claimStartupLatency?` | 1 | 1 | Client-measurable (performance.now) — no host fact needed. |
 | `readFileDataUrlForAttach?` | 1 | 1 | GET /api/fs/read-data-url (the server enforces the lower cap). |
 | `localModelsEnabled?` | 1 | 1 | GET /api/local-models/status — measured 200. |
 | `guestOnboardingEnabled?` | 1 | 1 | A launch flag the web client no longer sets: read it from the gateway it attached to. |
 | `localSkin?` | 1 | 1 | Sanitized config the browser reads from /api/config. |
+| `getRecentLogs` | 1 | 1 | In-page trace ring buffer fed by logLine. `path` reports "in-page" so it is never mistaken for the host log files. |
 | `setActiveConnectionRoute?` <br>_(1 members)_ | 1 | 1 | Client-side route state. |
 | `onOpenFolderRequested?` | 1 | 1 | Becomes a route plus /api/env/reveal. |
+| `onBackendExit` | 1 | 1 | Real subscription fed by the gateway socket close — the only exit signal a browser client gets. |
+| `onBootProgress` | 1 | 1 | Live subscription with no host source: nothing to install means nothing to report. |
+| `getBootstrapState` | 0 | 0 | Reports `active:false`: bootstrap is inapplicable to a client that attaches to a running gateway. |
 
 #### Column B
 
@@ -517,7 +619,6 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 |---|---:|---:|---|
 | `hud?` <br>_(17 members)_ | 21 | 12 | **C2** — Always-on-top overlay windows |
 | `petOverlay` <br>_(9 members)_ | 18 | 2 | **C2** — Always-on-top overlay windows |
-| `getBootProgress` | 11 | 2 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `quickEntry` <br>_(10 members)_ | 8 | 3 | **C2** — Always-on-top overlay windows |
 | `continueBootstrapLocal` | 7 | 2 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `windowRelay?` <br>_(2 members)_ | 6 | 4 | **C1** — Window chrome and multi-window IPC |
@@ -525,7 +626,6 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `revalidateConnection` | 5 | 2 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `touchBackend` | 4 | 2 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `wakeIndicator?` <br>_(3 members)_ | 4 | 3 | **C2** — Always-on-top overlay windows |
-| `glassSupported?` | 4 | 2 | **C3** — Native window theming and glass |
 | `resetBootstrap` | 4 | 3 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `openWindow` | 3 | 2 | **C1** — Window chrome and multi-window IPC |
 | `hudModifier?` | 3 | 3 | **C2** — Always-on-top overlay windows |
@@ -541,15 +641,11 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `chatOnboarding?` <br>_(2 members)_ | 2 | 1 | **C2** — Always-on-top overlay windows |
 | `sshConfigHosts` | 2 | 2 | **C7** — Host resources the browser cannot reach |
 | `sshResolveHost` | 2 | 1 | **C7** — Host resources the browser cannot reach |
-| `translucencySupported?` | 2 | 1 | **C3** — Native window theming and glass |
 | `setTranslucency?` | 2 | 2 | **C3** — Native window theming and glass |
 | `setF12ShortcutActive?` | 2 | 1 | **C4** — DevTools / F12 and Electron input channels |
 | `renamePath?` | 2 | 1 | **C7** — Host resources the browser cannot reach |
 | `trashPath?` | 2 | 1 | **C7** — Host resources the browser cannot reach |
 | `repairBootstrap` | 2 | 1 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
-| `onBootstrapEvent` | 2 | 1 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
-| `getPoolLimits` | 1 | 1 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
-| `setPoolLimits` <br>_(2 members)_ | 1 | 1 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `onBrowserPopoutClosed` | 1 | 1 | **C1** — Window chrome and multi-window IPC |
 | `claimAmbientCue` | 1 | 1 | **C1** — Window chrome and multi-window IPC |
 | `setSecretStorageEncryption` | 1 | 1 | **C7** — Host resources the browser cannot reach |
@@ -563,20 +659,16 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `setDisableF12?` | 1 | 1 | **C4** — DevTools / F12 and Electron input channels |
 | `onF12Shortcut?` <br>_(1 members)_ | 1 | 1 | **C4** — DevTools / F12 and Electron input channels |
 | `setPreviewShortcutActive?` | 1 | 1 | **C4** — DevTools / F12 and Electron input channels |
-| `getRecentLogs` | 1 | 1 | **C7** — Host resources the browser cannot reach |
 | `onClosePreviewRequested?` | 1 | 1 | **C5** — Preview `<webview>` internals |
 | `onOpenUpdatesRequested?` | 1 | 1 | **C4** — DevTools / F12 and Electron input channels |
-| `onBackendExit` | 1 | 1 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `onPoolBackendRetiring?` | 1 | 1 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `onConnectionApplied?` | 1 | 1 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
-| `onBootProgress` | 1 | 1 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `cancelBootstrap` | 1 | 1 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `relaunchApp?` | 1 | 1 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `getRemoteDisplayReason?` | 1 | 1 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `onOpenFindBarRequested` | 1 | 1 | **C4** — DevTools / F12 and Electron input channels |
 | `getSecretStorageEncryption` | 0 | 0 | **C7** — Host resources the browser cannot reach |
 | `agentPluginsRoot?` | 0 | 0 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
-| `getBootstrapState` | 0 | 0 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `getSyncStatus` | 0 | 0 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `stopFindInPage` | 0 | 0 | **C4** — DevTools / F12 and Electron input channels |
 <!-- END GENERATED APPENDIX -->
