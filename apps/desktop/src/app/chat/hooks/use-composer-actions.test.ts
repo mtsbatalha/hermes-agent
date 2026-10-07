@@ -24,6 +24,51 @@ import {
 const osDrop = (path: string): DroppedFile => ({ file: new File(['x'], path.split('/').pop() || 'f'), path })
 const inAppRef = (path: string, extra: Partial<DroppedFile> = {}): DroppedFile => ({ path, ...extra })
 
+describe('file-picker failure recovery', () => {
+  afterEach(() => {
+    Reflect.deleteProperty(window, 'hermesDesktop')
+    vi.clearAllMocks()
+  })
+
+  it('does not add a context chip or reject the UI action when upload fails', async () => {
+    const selectPaths = vi.fn().mockRejectedValue(new Error('upload denied'))
+    Object.defineProperty(window, 'hermesDesktop', { configurable: true, value: { selectPaths } })
+    const add = vi.fn()
+
+    const { result } = renderHook(() =>
+      useComposerActions({
+        activeSessionId: null,
+        currentCwd: '/test',
+        requestGateway: vi.fn(),
+        scope: {
+          add,
+          remove: vi.fn(() => null),
+          target: 'main',
+          update: vi.fn(() => true),
+          updateIfCurrent: vi.fn(() => true)
+        }
+      })
+    )
+
+    await expect(result.current.pickContextPaths('file')).resolves.toBeUndefined()
+    expect(selectPaths).toHaveBeenCalledOnce()
+    expect(add).not.toHaveBeenCalled()
+  })
+
+  it('does not reject the image-picker action when picking fails', async () => {
+    Object.defineProperty(window, 'hermesDesktop', {
+      configurable: true,
+      value: { selectPaths: vi.fn().mockRejectedValue(new Error('picker unavailable')) }
+    })
+
+    const { result } = renderHook(() =>
+      useComposerActions({ activeSessionId: null, currentCwd: '/test', requestGateway: vi.fn() })
+    )
+
+    await expect(result.current.pickImages()).resolves.toBeUndefined()
+  })
+})
+
 describe('partitionDroppedFiles', () => {
   it('routes File-bearing OS drops to osDrops and path-only in-app drags to inAppRefs', () => {
     const finderPdf = osDrop('/Users/mahmoud/Downloads/DEVIS_signed.pdf')

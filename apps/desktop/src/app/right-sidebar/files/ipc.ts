@@ -203,6 +203,16 @@ export async function readProjectDir(dirPath: string, rootPath = dirPath): Promi
     return { entries: [], error: 'no-bridge' }
   }
 
+  // A caller with an unset/typed-garbage path (live capture: a non-string cwd
+  // during heavy paste traffic reaches ancestorDirs → cleanPath and throws
+  // `e.trim is not a function` as an UNCAUGHT pageerror — the whole tree pass,
+  // and the splash it runs inside, dies on it). The poll interval has no
+  // catch, so keep the boundary HERE: a not-a-path reads as an empty listing,
+  // never as a renderer exception.
+  if (typeof dirPath !== 'string' || typeof rootPath !== 'string') {
+    return { entries: [], error: 'invalid-path' }
+  }
+
   // The transport-level noise (.git internals, dependency/build dirs) is
   // stripped at both ends, so the reveal floor is SHOW_IGNORED_EXCLUDED —
   // ALWAYS_EXCLUDED names the transports keep (out, vendor, coverage, …)

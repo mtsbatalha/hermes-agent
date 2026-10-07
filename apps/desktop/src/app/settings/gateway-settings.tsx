@@ -1478,25 +1478,30 @@ function GatewayConnectionSettings({ embedded, standalone }: { embedded: boolean
 
       {embedded ? null : (
         <div className="mt-6 grid gap-1">
-          <ToggleRow
-            checked={keychainEncryption}
-            description={g.keychainEncryptionDesc}
-            disabled={keychainEncryptionBusy}
-            id={settingElementId(SETTING_IDS.gateway.keychainEncryption)}
-            label={g.keychainEncryptionTitle}
-            onChange={on => void setKeychainEncryption(on)}
-          />
-          <ListRow
-            action={
-              <Button onClick={() => void window.hermesDesktop?.revealLogs()} size="sm" variant="textStrong">
-                <FileText />
-                {g.openLogs}
-              </Button>
-            }
-            description={g.diagnosticsDesc}
-            id={settingElementId(SETTING_IDS.gateway.diagnostics)}
-            title={g.diagnostics}
-          />
+          {typeof window.hermesDesktop?.getSecretStorageEncryption === 'function' &&
+          typeof window.hermesDesktop?.setSecretStorageEncryption === 'function' ? (
+            <ToggleRow
+              checked={keychainEncryption}
+              description={g.keychainEncryptionDesc}
+              disabled={keychainEncryptionBusy}
+              id={settingElementId(SETTING_IDS.gateway.keychainEncryption)}
+              label={g.keychainEncryptionTitle}
+              onChange={on => void setKeychainEncryption(on)}
+            />
+          ) : null}
+          {window.hermesDesktop?.revealLogs ? (
+            <ListRow
+              action={
+                <Button onClick={() => void window.hermesDesktop?.revealLogs?.()} size="sm" variant="textStrong">
+                  <FileText />
+                  {g.openLogs}
+                </Button>
+              }
+              description={g.diagnosticsDesc}
+              id={settingElementId(SETTING_IDS.gateway.diagnostics)}
+              title={g.diagnostics}
+            />
+          ) : null}
         </div>
       )}
 

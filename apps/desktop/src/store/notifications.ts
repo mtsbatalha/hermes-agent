@@ -226,6 +226,22 @@ function summarizeErrorMessage(message: string, fallback: string) {
   }
 }
 
+// The web bridge throws `BridgeError`, whose message is "<member>: <detail>"
+// ("selectPaths: File exceeds the 16 MiB gateway read limit."). The member is
+// an internal call name, MEASURED surfacing verbatim in the oversized-attach
+// toast. A same-page bridge instance keeps its `detail` field; an
+// Electron-serialized one keeps only the message, so the prefix is matched
+// there too — camelCase or dotted, the only shapes the bridge mints.
+function stripBridgeMemberPrefix(message: string, error: unknown): string {
+  if (error instanceof Error) {
+    const shaped = error as { name?: unknown; detail?: unknown }
+    if (shaped.name === 'BridgeError' && typeof shaped.detail === 'string' && shaped.detail) {
+      return shaped.detail
+    }
+  }
+  return message.replace(/^(?:[a-z]+[A-Z][a-zA-Z0-9]*|[a-z][a-zA-Z0-9]*(?:\.[a-zA-Z0-9]+)+): /, '')
+}
+
 // Exported so flows that surface errors inline (e.g. ConfirmDialog's onConfirm
 // rethrow) can reuse the same IPC-unwrapping + summarizing as notifyError.
 export function readableError(
@@ -234,7 +250,7 @@ export function readableError(
 ): { message: string; detail?: string; action?: NotificationAction; category: ErrorToastCategory } {
   const raw = error instanceof Error ? error.message : typeof error === 'string' ? error : fallback
   const unwrapped = raw.match(/Error invoking remote method '[^']+': Error: (.+)$/)?.[1] ?? raw
-  const cleaned = cleanErrorText(unwrapped)
+  const cleaned = cleanErrorText(stripBridgeMemberPrefix(unwrapped, error))
   const detail = cleaned.match(/"detail"\s*:\s*"([^"]+)"/)?.[1] ?? cleaned
   const summary = summarizeErrorMessage(detail, fallback)
 

@@ -77,6 +77,29 @@ test('disk-full / ENOSPC phrasings are classified as disk-full, other storage fa
   expect(isDiskFullErrorMessage('network timeout')).toBe(false)
 })
 
+// Regression for the measured web-spike toast: the web bridge's oversized-file
+// refusal reached the user as "selectPaths: File exceeds the 16 MiB gateway
+// read limit." — the bridge member name is an internal call site, not copy a
+// user can act on. Same-page the error keeps its `detail` field; across a
+// serialization boundary only the prefixed message survives, so both shapes
+// must strip. Ordinary messages that merely look like "word: " stay untouched.
+test('web bridge errors toast the detail without the internal member prefix', () => {
+  // Same-page shape: BridgeError instance semantics on a plain Error.
+  const samePage = new Error('selectPaths: File exceeds the 16 MiB gateway read limit.') as Error & {
+    name: string
+    detail: string
+  }
+  samePage.name = 'BridgeError'
+  samePage.detail = 'File exceeds the 16 MiB gateway read limit.'
+  notifyError(samePage, 'Drop files to attach')
+  expect(lastMessage()).toBe('File exceeds the 16 MiB gateway read limit.')
+
+  // Serialized shape: only "member: detail" survives the boundary.
+  clearNotifications()
+  notifyError(new Error('selectPaths: The upload did not return a gateway path.'), 'Drop files to attach')
+  expect(lastMessage()).toBe('The upload did not return a gateway path.')
+})
+
 test('notifyError posts the full error to desktop.log, not the summary', () => {
   const logLine = vi.fn()
 

@@ -9,14 +9,24 @@
  *  Such a path never gets joined onto a cwd. */
 export const isWindowsAbsolutePath = (path: string): boolean => /^(?:[A-Za-z]:[\\/]|\\\\)/.test(path)
 
-/** POSIX-style spelling: one separator, no trailing slash. */
-export const cleanPath = (path: string): string => path.trim().replace(/\\/g, '/').replace(/\/+$/, '') || '/'
+/** POSIX-style spelling: one separator, no trailing slash.
+ *  Tolerates garbage inputs: all four path sources disagree on spelling AND
+ *  type — a session row can carry a null/number cwd here (live capture
+ *  `e.trim is not a function` at cleanPath during spike image-paste playtest —
+ *  filterIgnored → ancestorDirs), so compare on a settled `String` or bail. */
+export const cleanPath = (path: string): string => {
+  if (typeof path !== 'string') {
+    return '/'
+  }
+
+  return path.trim().replace(/\\/g, '/').replace(/\/+$/, '') || '/'
+}
 
 /** Case-folded comparison key. Windows drive/UNC paths are case-insensitive;
  *  POSIX paths are not, and callers that display a path want its real spelling,
  *  so fold only the key. Expects an already-`cleanPath`ed value. */
 export const comparisonPath = (path: string): string =>
-  /^[A-Za-z]:(?:\/|$)/.test(path) || path.startsWith('//') ? path.toLowerCase() : path
+  typeof path !== 'string' ? '' : /^[A-Za-z]:(?:\/|$)/.test(path) || path.startsWith('//') ? path.toLowerCase() : path
 
 /** True when `child` IS `parent` or lives underneath it. */
 export const isUnderPath = (parent: string, child: string): boolean => {

@@ -54,6 +54,20 @@ describe('readProjectDir', () => {
     await expect(readProjectDir('/repo')).resolves.toEqual({ entries: [], error: 'no-bridge' })
   })
 
+  it('degrades a typed-garbage path instead of letting cleanPath throw', async () => {
+    // Regression: a non-string reaching the ignore pass escalated to an
+    // UNCAUGHT pageerror (`e.trim is not a function`) that killed the whole
+    // tree pass — with no catch at the poll interval call site.
+    await expect(readProjectDir(undefined as unknown as string)).resolves.toEqual({
+      entries: [],
+      error: 'invalid-path'
+    })
+    await expect(readProjectDir('/repo', null as unknown as string)).resolves.toEqual({
+      entries: [],
+      error: 'invalid-path'
+    })
+  })
+
   it('filters gitignored entries when readDir returns Windows-style paths', async () => {
     gitRoot.mockResolvedValue('C:\\repo')
     readDir.mockImplementation(async path => {

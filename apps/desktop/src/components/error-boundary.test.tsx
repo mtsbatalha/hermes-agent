@@ -77,6 +77,24 @@ describe('ErrorBoundary assistant-ui lookup recovery', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
+  it('keeps recovery usable without a native log-reveal capability', () => {
+    const original = window.hermesDesktop
+    Object.defineProperty(window, 'hermesDesktop', { configurable: true, value: {} })
+
+    try {
+      const Bomb = makeBomb({ error: new Error('workflow failure') })
+      render(
+        <RootErrorBoundary>
+          <Bomb />
+        </RootErrorBoundary>
+      )
+      expect(screen.getByRole('button', { name: 'Reload window' })).toBeTruthy()
+      expect(screen.queryByRole('button', { name: 'Open logs' })).toBeNull()
+    } finally {
+      Object.defineProperty(window, 'hermesDesktop', { configurable: true, value: original })
+    }
+  })
+
   it('stops retrying a persistent lookup error after the recovery budget is exhausted', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     const box: { error: Error | null } = { error: CURRENT_LOOKUP_ERROR }

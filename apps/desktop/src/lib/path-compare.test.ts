@@ -18,6 +18,16 @@ describe('cleanPath', () => {
     expect(cleanPath('  /home/user/repo//  ')).toBe('/home/user/repo')
   })
 
+  it('degrades an unset/typed-garbage path instead of throwing', () => {
+    // Session rows can carry a null/number cwd into the tree comparisons
+    // (live capture: `e.trim is not a function` thrown from cleanPath).
+    const bad = [null, undefined, 123] as unknown as string[]
+    expect(() => bad.forEach(cleanPath)).not.toThrow()
+    for (const value of bad) {
+      expect(cleanPath(value)).toBe('/')
+    }
+  })
+
   it('keeps root rather than collapsing to empty', () => {
     expect(cleanPath('/')).toBe('/')
   })
@@ -44,5 +54,11 @@ describe('isUnderPath', () => {
 
   it('does not treat a sibling with a shared prefix as nested', () => {
     expect(isUnderPath('/repos/app', '/repos/app-retry')).toBe(false)
+  })
+
+  it('returns false — never throws — when either side is not a string', () => {
+    const [nullPath, undefinedPath] = [null, undefined] as unknown as string[]
+    expect(isUnderPath(nullPath, '/repos/app')).toBe(false)
+    expect(isUnderPath('/repos/app', undefinedPath)).toBe(false)
   })
 })

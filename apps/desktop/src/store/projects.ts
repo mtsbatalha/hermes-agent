@@ -207,7 +207,11 @@ export function projectIdForCwd(cwd: string): null | string {
     const paths = [project.path, ...project.repos.flatMap(repo => [repo.path, ...repo.groups.map(group => group.path)])]
 
     for (const path of paths) {
-      const p = (path || '').trim()
+      if (typeof path !== 'string') {
+        continue
+      }
+
+      const p = path.trim()
 
       if (p && isUnderPath(p, cwd) && p.length > bestLen) {
         bestLen = p.length
@@ -245,7 +249,11 @@ export function projectNameForCwd(cwd: string): null | string {
     const paths = [project.path, ...project.repos.flatMap(repo => [repo.path, ...repo.groups.map(group => group.path)])]
 
     for (const path of paths) {
-      const p = (path || '').trim()
+      if (typeof path !== 'string') {
+        continue
+      }
+
+      const p = path.trim()
 
       if (p && isUnderPath(p, target) && p.length > bestLen) {
         bestLen = p.length

@@ -458,11 +458,19 @@ export function useComposerActions({
 
   const pickContextPaths = useCallback(
     async (kind: 'file' | 'folder') => {
-      const paths = await selectDesktopPaths({
-        title: kind === 'file' ? 'Add files as context' : 'Add folders as context',
-        defaultPath: currentCwd || undefined,
-        directories: kind === 'folder'
-      })
+      let paths: string[]
+
+      try {
+        paths = await selectDesktopPaths({
+          title: kind === 'file' ? 'Add files as context' : 'Add folders as context',
+          defaultPath: currentCwd || undefined,
+          directories: kind === 'folder'
+        })
+      } catch (error) {
+        notifyError(error, copy.dropFiles)
+
+        return
+      }
 
       if (!paths?.length) {
         return
@@ -481,7 +489,7 @@ export function useComposerActions({
         })
       }
     },
-    [attachToMain, currentCwd]
+    [attachToMain, copy.dropFiles, currentCwd]
   )
 
   const insertContextPathInlineRef = useCallback(
@@ -620,16 +628,24 @@ export function useComposerActions({
   )
 
   const pickImages = useCallback(async () => {
-    const paths = await selectDesktopPaths({
-      title: copy.attachImages,
-      defaultPath: currentCwd || undefined,
-      filters: [
-        {
-          name: t.composer.images,
-          extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'tiff']
-        }
-      ]
-    })
+    let paths: string[]
+
+    try {
+      paths = await selectDesktopPaths({
+        title: copy.attachImages,
+        defaultPath: currentCwd || undefined,
+        filters: [
+          {
+            name: t.composer.images,
+            extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'tiff']
+          }
+        ]
+      })
+    } catch (error) {
+      notifyError(error, copy.imageAttachFailed)
+
+      return
+    }
 
     if (!paths?.length) {
       return
@@ -638,7 +654,7 @@ export function useComposerActions({
     for (const path of paths) {
       await attachImagePath(path)
     }
-  }, [attachImagePath, copy.attachImages, currentCwd, t.composer.images])
+  }, [attachImagePath, copy.attachImages, copy.imageAttachFailed, currentCwd, t.composer.images])
 
   const pasteClipboardImage = useCallback(
     async ({ silent = false }: { silent?: boolean } = {}) => {

@@ -68,6 +68,21 @@ afterEach(() => {
 })
 
 describe('GatewaySettings', () => {
+  it('does not offer native log reveal or keychain controls when the bridge omits them', async () => {
+    render(<GatewaySettings />)
+    await screen.findByRole('button', { name: 'Save for next restart' })
+    expect(screen.queryByRole('button', { name: 'Open logs' })).toBeNull()
+    expect(screen.queryByText('Encrypt saved secrets with the OS keychain')).toBeNull()
+  })
+
+  it('preserves the native log action when the bridge provides it', async () => {
+    const revealLogs = vi.fn().mockResolvedValue({ ok: true, path: '/logs/desktop.log' })
+    Object.assign(window.hermesDesktop, { revealLogs })
+    render(<GatewaySettings />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Open logs' }))
+    expect(revealLogs).toHaveBeenCalledOnce()
+  })
+
   it('releases a pending save after a late probe invalidates its response', async () => {
     const saved = { ...localConnection, mode: 'remote', remoteUrl: 'https://a.example', remoteTokenSet: true }
     getConnectionConfig.mockResolvedValue(saved)
