@@ -31,6 +31,7 @@ import { installClipboardShim } from './lib/clipboard'
 import { queryClient } from './lib/query-client'
 import { installRendererAnimationPauseState } from './lib/renderer-loop-pause'
 import { installSelectionCopyColorGuard } from './lib/selection-copy-colors'
+import { markWebClientRoot } from './app/shell/web-client'
 import { ThemeProvider } from './themes/context'
 
 installClipboardShim()
@@ -85,6 +86,11 @@ if (winParam === 'overlay') {
   // main window's visibility state to :root so decorative infinite
   // animations stop producing frames when nobody can see them.
   installRendererAnimationPauseState()
+
+  // Before first paint: the browser client (web bridge) keys shell CSS on this
+  // root attribute — e.g. the chat's session header mounts only in the web
+  // client, where no native titlebar replaces it. See app/shell/web-client.ts.
+  markWebClientRoot()
 
   createRoot(document.getElementById('root')!).render(
     <StrictMode>

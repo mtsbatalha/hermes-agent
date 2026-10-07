@@ -25,6 +25,7 @@ import { type ReactNode, useEffect } from 'react'
 
 import { useLayoutEditHotkey } from '../../edit-mode'
 import { publishWorkspaceGeometry } from '../../geometry'
+import { TITLEBAR_HEIGHT } from '@/app/shell/titlebar'
 import { $layoutTree, trackActiveTreeGroup } from '../store'
 import { useTabKeyHints } from '../tab-key-hint-state'
 import { ZoneEditor } from '../zone-editor'
@@ -67,6 +68,16 @@ export function LayoutTreeRoot({ children, titlebar = false }: { children?: Reac
            doubling the zone's top seam. Remove the band entirely. */
         [data-tree-group] header[class*="h-(--titlebar-height)"] {
           display: none;
+        }
+        /* WEB CLIENT ONLY: the browser frame is the frame — no native titlebar
+           or window controls overlay exists whose tab strip replaces the
+           band, so the chat's session header (title menu + session actions)
+           is the only always-visible affordance and must mount. The shell
+           zeroes --titlebar-height, so the height comes back explicitly here.
+           Keep the px in step with TITLEBAR_HEIGHT (interpolated below). */
+        [data-web-client] [data-tree-group] header[class*="h-(--titlebar-height)"] {
+          display: flex;
+          height: ${TITLEBAR_HEIGHT}px;
         }
       `}</style>
       <KeepAlivePanes>
