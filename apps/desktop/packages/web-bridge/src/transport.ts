@@ -173,6 +173,47 @@ export async function api<T>(path: string, options: ApiOptions = {}, member = 'a
   return (text ? JSON.parse(text) : undefined) as T
 }
 
+/**
+ * GATED mode: the auth gate is active, so the server injects NO token — the
+ * REST credential is the HttpOnly session cookie (``credentials: same-origin``
+ * below), and the WS upgrade needs a single-use ``?ticket=`` minted at the
+ * cookie-authed ``POST /api/auth/ws-ticket`` (30s TTL; the same flow Electron's
+ * connection config runs). A gated gateway rejects ``?token=`` outright, so
+ * the ticket replaces any token query. The served page declares the mode via
+ * ``__HERMES_AUTH_REQUIRED__``; absent/false = token/cookie page as before.
+ */
+function pageRequiresAuth(): boolean {
+  try {
+    return (window as unknown as { __HERMES_AUTH_REQUIRED__?: unknown }).__HERMES_AUTH_REQUIRED__ === true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Mint one ws-ticket for this upgrade. Network/refusal failures surface to the
+ * renderer as a bridge-style error instead of a bare socket close.
+ */
+async function mintWsTicket(): Promise<string> {
+  try {
+    const response = await fetch('/api/auth/ws-ticket', {
+      method: 'POST',
+      credentials: 'same-origin'
+    })
+    if (!response.ok) {
+      throw new BridgeError('gatewayWsUrl', `POST /api/auth/ws-ticket -> ${response.status}`)
+    }
+    const body = (await response.json()) as { ticket?: unknown }
+    if (typeof body.ticket !== 'string' || body.ticket.length === 0) {
+      throw new BridgeError('gatewayWsUrl', 'ws-ticket mint returned no ticket')
+    }
+    return body.ticket
+  } catch (error) {
+    if (error instanceof BridgeError) throw error
+    throw new BridgeError('gatewayWsUrl', `ws-ticket mint failed: ${String(error)}`)
+  }
+}
+
 export type GatewayWsUrlResult = { ok: boolean; wsUrl?: string; error?: string }
 
 /**
@@ -185,10 +226,20 @@ export type GatewayWsUrlResult = { ok: boolean; wsUrl?: string; error?: string }
  */
 export async function gatewayWsUrl(_profile?: string | null): Promise<GatewayWsUrlResult> {
   const url = gatewaySocketUrl('/api/ws')
-  // Credential order: a dev override (`?token=`) or the page-injected session
-  // token (`?token=`, same injection the Desktop shell reads) — both for the
-  // token-auth servers. In production behind the auth gate neither exists and
-  // the server expects a ticket in Sec-WebSocket-Protocol instead.
+  // GATED: cookie-authed single-use ticket; the ticket replaces any token
+  // query because gated gateways reject `?token=` outright.
+  if (pageRequiresAuth()) {
+    try {
+      const ticket = await mintWsTicket()
+      url.searchParams.set('ticket', ticket)
+      return { ok: true, wsUrl: url.toString() }
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+  // Ungated credential order: a dev override (`?token=`) or the page-injected
+  // session token (`?token=`, same injection the Desktop shell reads). Behind
+  // the auth gate neither exists and the ticket path above runs instead.
   const token = sessionToken()
   if (token) url.searchParams.set('token', token)
   return { ok: true, wsUrl: url.toString() }

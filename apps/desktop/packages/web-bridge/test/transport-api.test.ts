@@ -285,6 +285,93 @@ describe('page-injected session token', () => {
   })
 })
 
+/**
+ * GATED mode (auth gate active): the server injects NO token — the credential
+ * is the HttpOnly session cookie, and the WS upgrade needs a single-use
+ * `?ticket=` minted at POST /api/auth/ws-ticket (the same flow Electron's
+ * connection config runs; a gated gateway rejects `?token=` outright). The
+ * page tells the bridge which mode it is via `__HERMES_AUTH_REQUIRED__`.
+ */
+describe('gated mode: ws-ticket mint', () => {
+  beforeEach(() => {
+    setDevSessionToken('')
+    vi.stubGlobal('location', { origin: 'http://127.0.0.1:9212', protocol: 'http:' })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    setDevSessionToken('')
+    delete (globalThis as { __HERMES_AUTH_REQUIRED__?: unknown }).__HERMES_AUTH_REQUIRED__
+  })
+
+  it('mints a single-use ticket and appends ?ticket= on the upgrade', async () => {
+    ;(globalThis as { __HERMES_AUTH_REQUIRED__?: unknown }).__HERMES_AUTH_REQUIRED__ = true
+    const mintCalls: FetchArgs[] = []
+    vi.stubGlobal('fetch', (input: RequestInfo | URL, init: RequestInit = {}) => {
+      mintCalls.push({ url: typeof input === 'string' ? input : String(input), init })
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve('{"ticket":"tkt-123","ttl_seconds":30}'),
+        json: () => Promise.resolve({ ticket: 'tkt-123', ttl_seconds: 30 })
+      } as Response)
+    })
+    const result = await gatewayWsUrl()
+    expect(result.ok).toBe(true)
+    expect(result.wsUrl).toContain('ticket=tkt-123')
+    expect(mintCalls[0].url).toContain('/api/auth/ws-ticket')
+    expect(mintCalls[0].init.method).toBe('POST')
+    expect((mintCalls[0].init as RequestInit & { credentials?: string }).credentials).toBe('same-origin')
+  })
+
+  it('does not mint and carries no token params on an ungated page', async () => {
+    ;(globalThis as { __HERMES_AUTH_REQUIRED__?: unknown }).__HERMES_AUTH_REQUIRED__ = false
+    const calls: FetchArgs[] = []
+    vi.stubGlobal('fetch', (input: RequestInfo | URL, init: RequestInit = {}) => {
+      calls.push({ url: typeof input === 'string' ? input : String(input), init })
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('{}') } as Response)
+    })
+    const result = await gatewayWsUrl()
+    expect(result.ok).toBe(true)
+    expect(result.wsUrl).not.toContain('ticket=')
+    expect(calls).toEqual([])
+  })
+
+  it('reports failure when the mint is refused (session expired)', async () => {
+    ;(globalThis as { __HERMES_AUTH_REQUIRED__?: unknown }).__HERMES_AUTH_REQUIRED__ = true
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve({ ok: false, status: 401, text: () => Promise.resolve('Unauthorized') } as Response))
+    const result = await gatewayWsUrl()
+    expect(result.ok).toBe(false)
+    expect(result.wsUrl).toBeUndefined()
+    expect(result.error).toBeTruthy()
+  })
+
+  it('reports failure when the mint cannot reach the server', async () => {
+    ;(globalThis as { __HERMES_AUTH_REQUIRED__?: unknown }).__HERMES_AUTH_REQUIRED__ = true
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('network down')))
+    const result = await gatewayWsUrl()
+    expect(result.ok).toBe(false)
+    expect(result.error).toBeTruthy()
+  })
+
+  it('prefers the ticket over the dev token on a gated page (gated gateways reject ?token=)', async () => {
+    ;(globalThis as { __HERMES_AUTH_REQUIRED__?: unknown }).__HERMES_AUTH_REQUIRED__ = true
+    setDevSessionToken('dev-token')
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve('{"ticket":"tkt-123","ttl_seconds":30}'),
+        json: () => Promise.resolve({ ticket: 'tkt-123', ttl_seconds: 30 })
+      } as Response))
+    const result = await gatewayWsUrl()
+    expect(result.ok).toBe(true)
+    expect(result.wsUrl).toContain('ticket=tkt-123')
+    expect(result.wsUrl).not.toContain('token=')
+  })
+})
+
 describe('BridgeError', () => {
   it('keeps member and detail as separate fields for programmatic use', () => {
     const error = new BridgeError('readDir', 'GET /api/fs/list -> 404')
