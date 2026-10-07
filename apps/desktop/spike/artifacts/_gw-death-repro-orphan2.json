@@ -1,0 +1,91 @@
+{
+  "mode": "orphan",
+  "watchSeconds": 45.0,
+  "startedAt": "2026-10-07T05:30:54",
+  "root": "C:\\Users\\Mateus\\AppData\\Local\\Temp\\gw-death-orphan2",
+  "graceOverride": null,
+  "steps": [
+    {
+      "at": 5.16,
+      "step": "backend_ready",
+      "port": 61508,
+      "pid": 22736
+    },
+    {
+      "at": 5.24,
+      "step": "identity_before",
+      "ok": true,
+      "body": "{\"ok\":true,\"protocolVersion\":1,\"pid\":18348,\"role\":\"serve\",\"servesSpa\":false}"
+    },
+    {
+      "at": 5.56,
+      "step": "session_created",
+      "sid": "7fd83b22",
+      "stored": "20261007_053059_3d0d30"
+    },
+    {
+      "at": 5.65,
+      "step": "prompt_submitted",
+      "status": "streaming"
+    },
+    {
+      "at": 9.81,
+      "step": "turn_in_flight",
+      "event": "message.delta",
+      "chars": 0
+    },
+    {
+      "at": 9.81,
+      "step": "socket_dropped",
+      "abrupt": true
+    },
+    {
+      "at": 10.81,
+      "step": "watch_parent_killed",
+      "pid": 10816,
+      "after": 1.0
+    },
+    {
+      "at": 11.82,
+      "step": "gateway_exited",
+      "rc": 15,
+      "secondsAfterDrop": 2.01
+    }
+  ],
+  "timeline": [
+    {
+      "t": 1.01,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 2.01,
+      "alive": false,
+      "identity": false
+    }
+  ],
+  "port": 61508,
+  "gatewayPid": 22736,
+  "wsUrl": "ws://127.0.0.1:61508/api/ws?token=2dece6e06a01b41cfad978cad3a54265",
+  "verdict": "GATEWAY_DIED",
+  "exitCode": 15,
+  "polls": 2,
+  "firstFailure": null,
+  "identityAfter": {
+    "ok": false,
+    "body": "process exited"
+  },
+  "watchWindow": {
+    "polls": 2,
+    "seconds": 45.0
+  },
+  "logs": "--- serve.stdout.log ---\nHERMES_BACKEND_READY port=61508\nHERMES_DASHBOARD_READY port=61508\n--- serve.stderr.log ---\n  Hermes backend listening on 127.0.0.1:61508\n\u00e2\u0161\u00a1 Interrupted during API call.\n--- errors.log ---\n2026-10-07 05:30:56,024 WARNING hermes_cli.post_update: config migration skipped: This config predates version 12 (~2 years old) and can no longer be auto-migrated. Back up ~/.hermes/config.yaml and run `hermes setup` to regenerate, or manually set _config_version: 12 after reviewing the changelog.\n2026-10-07 05:31:05,463 WARNING hermes_cli.web_server: Parent-death watchdog: desktop PID 10816 appears orphaned (expected_start_marker=None); shutting down.",
+  "forensic": [
+    "agent.log: 2026-10-07 05:31:04,260 INFO tui_gateway.ws: ws closed peer=127.0.0.1:61510 reason=client_disconnect(code=1006,reason=) messages=3 parse_errors=0 dispatch_crashes=0 send_failures=0 reaped_sessions=0 detached_sessions=1",
+    "agent.log: 2026-10-07 05:31:05,913 INFO [20261007_053059_3d0d30] tui_gateway.server: tui turn finished: ui_session=7fd83b22 session_key=202610...0d30 agent_session_id=20261007_053059_3d0d30 status=interrupted error_retained=False duration=3.3s",
+    "gui.log: 2026-10-07 05:31:04,260 INFO tui_gateway.ws: ws closed peer=127.0.0.1:61510 reason=client_disconnect(code=1006,reason=) messages=3 parse_errors=0 dispatch_crashes=0 send_failures=0 reaped_sessions=0 detached_sessions=1",
+    "gui.log: 2026-10-07 05:31:05,913 INFO [20261007_053059_3d0d30] tui_gateway.server: tui turn finished: ui_session=7fd83b22 session_key=202610...0d30 agent_session_id=20261007_053059_3d0d30 status=interrupted error_retained=False duration=3.3s"
+  ],
+  "errorsLog": "2026-10-07 05:30:56,024 WARNING hermes_cli.post_update: config migration skipped: This config predates version 12 (~2 years old) and can no longer be auto-migrated. Back up ~/.hermes/config.yaml and run `hermes setup` to regenerate, or manually set _config_version: 12 after reviewing the changelog.\n2026-10-07 05:31:05,463 WARNING hermes_cli.web_server: Parent-death watchdog: desktop PID 10816 appears orphaned (expected_start_marker=None); shutting down.\n",
+  "cleanStop": true
+}

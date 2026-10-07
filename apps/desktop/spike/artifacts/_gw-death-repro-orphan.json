@@ -1,0 +1,105 @@
+{
+  "mode": "orphan",
+  "watchSeconds": 90.0,
+  "startedAt": "2026-10-07T05:27:48",
+  "root": "C:\\Users\\Mateus\\AppData\\Local\\Temp\\gw-death-orphan",
+  "graceOverride": null,
+  "steps": [
+    {
+      "at": 5.18,
+      "step": "backend_ready",
+      "port": 62579,
+      "pid": 18180
+    },
+    {
+      "at": 5.23,
+      "step": "identity_before",
+      "ok": true,
+      "body": "{\"ok\":true,\"protocolVersion\":1,\"pid\":8440,\"role\":\"serve\",\"servesSpa\":false}"
+    },
+    {
+      "at": 5.49,
+      "step": "session_created",
+      "sid": "4782fabb",
+      "stored": "20261007_052753_319d23"
+    },
+    {
+      "at": 5.55,
+      "step": "prompt_submitted",
+      "status": "streaming"
+    },
+    {
+      "at": 10.19,
+      "step": "turn_in_flight",
+      "event": "message.delta",
+      "chars": 0
+    },
+    {
+      "at": 10.19,
+      "step": "socket_dropped",
+      "abrupt": true
+    },
+    {
+      "at": 12.19,
+      "step": "watch_parent_killed",
+      "pid": 21912,
+      "after": 2.0
+    },
+    {
+      "at": 15.25,
+      "step": "gateway_stopped_answering",
+      "secondsAfterDrop": 5.07,
+      "detail": "URLError: <urlopen error [WinError 10061] Nenhuma conex\u00e3o p\u00f4de ser feita porque a m\u00e1quina de destino as recusou ativamente>"
+    },
+    {
+      "at": 16.25,
+      "step": "gateway_exited",
+      "rc": 15,
+      "secondsAfterDrop": 6.07
+    }
+  ],
+  "timeline": [
+    {
+      "t": 2.02,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 5.07,
+      "alive": true,
+      "identity": false
+    },
+    {
+      "t": 6.07,
+      "alive": false,
+      "identity": false
+    }
+  ],
+  "port": 62579,
+  "gatewayPid": 18180,
+  "wsUrl": "ws://127.0.0.1:62579/api/ws?token=693f5d70562bac6921f0d3524cff9851",
+  "verdict": "GATEWAY_DIED",
+  "exitCode": 15,
+  "polls": 3,
+  "firstFailure": {
+    "t": 5.07,
+    "detail": "URLError: <urlopen error [WinError 10061] Nenhuma conex\u00e3o p\u00f4de ser feita porque a m\u00e1quina de destino as recusou ativamente>"
+  },
+  "identityAfter": {
+    "ok": false,
+    "body": "process exited"
+  },
+  "watchWindow": {
+    "polls": 3,
+    "seconds": 90.0
+  },
+  "logs": "--- serve.stdout.log ---\nHERMES_BACKEND_READY port=62579\nHERMES_DASHBOARD_READY port=62579\n--- serve.stderr.log ---\n  Hermes backend listening on 127.0.0.1:62579\n\u00e2\u0161\u00a1 Interrupted during API call.\n--- errors.log ---\n2026-10-07 05:27:49,753 WARNING hermes_cli.post_update: config migration skipped: This config predates version 12 (~2 years old) and can no longer be auto-migrated. Back up ~/.hermes/config.yaml and run `hermes setup` to regenerate, or manually set _config_version: 12 after reviewing the changelog.\n2026-10-07 05:28:01,278 WARNING hermes_cli.web_server: Parent-death watchdog: desktop PID 21912 appears orphaned (expected_start_marker=None); shutting down.",
+  "forensic": [
+    "agent.log: 2026-10-07 05:27:58,437 INFO tui_gateway.ws: ws closed peer=127.0.0.1:62581 reason=client_disconnect(code=1006,reason=) messages=3 parse_errors=0 dispatch_crashes=0 send_failures=0 reaped_sessions=0 detached_sessions=1",
+    "agent.log: 2026-10-07 05:28:01,691 INFO [20261007_052753_319d23] tui_gateway.server: tui turn finished: ui_session=4782fabb session_key=202610...9d23 agent_session_id=20261007_052753_319d23 status=interrupted error_retained=False duration=4.7s",
+    "gui.log: 2026-10-07 05:27:58,437 INFO tui_gateway.ws: ws closed peer=127.0.0.1:62581 reason=client_disconnect(code=1006,reason=) messages=3 parse_errors=0 dispatch_crashes=0 send_failures=0 reaped_sessions=0 detached_sessions=1",
+    "gui.log: 2026-10-07 05:28:01,691 INFO [20261007_052753_319d23] tui_gateway.server: tui turn finished: ui_session=4782fabb session_key=202610...9d23 agent_session_id=20261007_052753_319d23 status=interrupted error_retained=False duration=4.7s"
+  ],
+  "errorsLog": "2026-10-07 05:27:49,753 WARNING hermes_cli.post_update: config migration skipped: This config predates version 12 (~2 years old) and can no longer be auto-migrated. Back up ~/.hermes/config.yaml and run `hermes setup` to regenerate, or manually set _config_version: 12 after reviewing the changelog.\n2026-10-07 05:28:01,278 WARNING hermes_cli.web_server: Parent-death watchdog: desktop PID 21912 appears orphaned (expected_start_marker=None); shutting down.\n",
+  "cleanStop": true
+}

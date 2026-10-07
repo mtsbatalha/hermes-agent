@@ -1,0 +1,183 @@
+{
+  "mode": "clean",
+  "watchSeconds": 25.0,
+  "startedAt": "2026-10-07T05:08:28",
+  "root": "C:\\Users\\Mateus\\AppData\\Local\\Temp\\gw-death-clean",
+  "graceOverride": null,
+  "steps": [
+    {
+      "at": 16.64,
+      "step": "backend_ready",
+      "port": 52781,
+      "pid": 23556
+    },
+    {
+      "at": 16.76,
+      "step": "identity_before",
+      "ok": true,
+      "body": "HTTPError 401"
+    },
+    {
+      "at": 17.61,
+      "step": "session_created",
+      "sid": "4465bc65",
+      "stored": "20261007_050845_dbaed3"
+    },
+    {
+      "at": 17.61,
+      "step": "socket_dropped",
+      "abrupt": true
+    },
+    {
+      "at": 42.98,
+      "step": "watch_window_elapsed",
+      "seconds": 25.0,
+      "alive": true
+    }
+  ],
+  "timeline": [
+    {
+      "t": 0.03,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 1.03,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 2.05,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 3.07,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 4.09,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 5.12,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 6.12,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 7.13,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 8.14,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 9.17,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 10.18,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 11.2,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 12.23,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 13.23,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 14.25,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 15.26,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 16.26,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 17.26,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 18.27,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 19.28,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 20.3,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 21.31,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 22.32,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 23.34,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 24.36,
+      "alive": true,
+      "identity": true
+    }
+  ],
+  "port": 52781,
+  "gatewayPid": 23556,
+  "wsUrl": "ws://127.0.0.1:52781/api/ws?token=6276b950ab3be8b3d3df6ec38e4fbf40",
+  "verdict": "GATEWAY_SURVIVED",
+  "exitCode": null,
+  "polls": 25,
+  "firstFailure": null,
+  "identityAfter": {
+    "ok": true,
+    "body": "HTTPError 401"
+  },
+  "probe": {
+    "polls": 25,
+    "seconds": 25.0
+  },
+  "logs": "--- serve.stdout.log ---\nHERMES_BACKEND_READY port=52781\nHERMES_DASHBOARD_READY port=52781\n--- serve.stderr.log ---\n  Hermes backend listening on 127.0.0.1:52781\n--- errors.log ---\n2026-10-07 05:08:31,347 WARNING hermes_cli.post_update: config migration skipped: This config predates version 12 (~2 years old) and can no longer be auto-migrated. Back up ~/.hermes/config.yaml and run `hermes setup` to regenerate, or manually set _config_version: 12 after reviewing the changelog.",
+  "errorsLog": "2026-10-07 05:08:31,347 WARNING hermes_cli.post_update: config migration skipped: This config predates version 12 (~2 years old) and can no longer be auto-migrated. Back up ~/.hermes/config.yaml and run `hermes setup` to regenerate, or manually set _config_version: 12 after reviewing the changelog.\n",
+  "cleanStop": "AttributeError: module 'os' has no attribute 'killpg'"
+}

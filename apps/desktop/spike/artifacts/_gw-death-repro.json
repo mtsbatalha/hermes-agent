@@ -1,0 +1,1058 @@
+{
+  "mode": "stall",
+  "watchSeconds": 200.0,
+  "startedAt": "2026-10-07T05:09:42",
+  "root": "C:\\Users\\Mateus\\AppData\\Local\\Temp\\gw-death-stall",
+  "graceOverride": null,
+  "steps": [
+    {
+      "at": 6.18,
+      "step": "backend_ready",
+      "port": 60900,
+      "pid": 18324
+    },
+    {
+      "at": 6.22,
+      "step": "identity_before",
+      "ok": true,
+      "body": "{\"ok\":true,\"protocolVersion\":1,\"pid\":8248,\"role\":\"serve\",\"servesSpa\":false}"
+    },
+    {
+      "at": 6.5,
+      "step": "session_created",
+      "sid": "8a04ff62",
+      "stored": "20261007_050949_2bc613"
+    },
+    {
+      "at": 6.6,
+      "step": "prompt_submitted",
+      "status": "streaming"
+    },
+    {
+      "at": 11.41,
+      "step": "turn_in_flight",
+      "event": "message.delta",
+      "chars": 0
+    },
+    {
+      "at": 11.41,
+      "step": "socket_dropped",
+      "abrupt": true
+    },
+    {
+      "at": 211.51,
+      "step": "watch_window_elapsed",
+      "seconds": 200.0,
+      "alive": true
+    }
+  ],
+  "timeline": [
+    {
+      "t": 0.02,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 1.03,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 2.05,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 3.06,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 4.07,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 5.09,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 6.1,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 7.12,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 8.13,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 9.15,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 10.17,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 11.2,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 12.21,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 13.22,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 14.25,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 15.25,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 16.27,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 17.29,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 18.32,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 19.34,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 20.35,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 21.36,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 22.38,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 23.41,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 24.44,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 25.44,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 26.46,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 27.49,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 28.49,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 29.5,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 30.5,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 31.52,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 32.55,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 33.57,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 34.59,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 35.6,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 36.62,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 37.63,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 38.63,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 39.64,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 40.66,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 41.66,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 42.69,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 43.7,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 44.73,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 45.74,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 46.76,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 47.76,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 48.78,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 49.8,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 50.8,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 51.82,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 52.82,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 53.83,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 54.85,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 55.87,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 56.9,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 57.9,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 58.93,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 59.95,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 60.97,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 62.0,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 63.02,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 64.02,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 65.04,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 66.06,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 67.07,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 68.08,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 69.09,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 70.09,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 71.09,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 72.1,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 73.13,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 74.14,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 75.16,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 76.18,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 77.19,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 78.19,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 79.19,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 80.2,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 81.22,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 82.25,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 83.27,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 84.27,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 85.29,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 86.31,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 87.32,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 88.35,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 89.37,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 90.39,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 91.4,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 92.42,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 93.45,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 94.46,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 95.46,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 96.49,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 97.52,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 98.55,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 99.57,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 100.59,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 101.61,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 102.63,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 103.66,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 104.67,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 105.7,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 106.71,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 107.73,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 108.76,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 109.78,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 110.78,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 111.8,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 112.81,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 113.82,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 114.84,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 115.85,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 116.87,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 117.88,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 118.91,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 119.93,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 120.94,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 121.96,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 122.98,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 123.99,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 125.01,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 126.02,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 127.05,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 128.06,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 129.08,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 130.1,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 131.12,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 132.12,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 133.14,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 134.16,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 135.16,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 136.18,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 137.18,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 138.2,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 139.22,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 140.25,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 141.27,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 142.29,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 143.3,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 144.32,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 145.34,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 146.35,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 147.36,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 148.36,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 149.38,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 150.38,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 151.39,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 152.41,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 153.41,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 154.44,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 155.45,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 156.47,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 157.47,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 158.5,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 159.52,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 160.53,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 161.54,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 162.55,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 163.58,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 164.58,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 165.6,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 166.62,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 167.64,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 168.66,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 169.67,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 170.68,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 171.69,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 172.7,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 173.72,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 174.75,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 175.76,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 176.79,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 177.81,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 178.83,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 179.84,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 180.85,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 181.86,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 182.89,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 183.91,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 184.93,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 185.94,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 186.96,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 187.98,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 188.98,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 190.0,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 191.02,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 192.03,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 193.04,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 194.05,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 195.05,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 196.06,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 197.07,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 198.08,
+      "alive": true,
+      "identity": true
+    },
+    {
+      "t": 199.1,
+      "alive": true,
+      "identity": true
+    }
+  ],
+  "port": 60900,
+  "gatewayPid": 18324,
+  "wsUrl": "ws://127.0.0.1:60900/api/ws?token=e94385d1806d49fa15e2811f88321ea0",
+  "verdict": "GATEWAY_SURVIVED",
+  "exitCode": null,
+  "polls": 197,
+  "firstFailure": null,
+  "identityAfter": {
+    "ok": true,
+    "body": "{\"ok\":true,\"protocolVersion\":1,\"pid\":8248,\"role\":\"serve\",\"servesSpa\":false}"
+  },
+  "probe": {
+    "polls": 197,
+    "seconds": 200.0
+  },
+  "logs": "--- serve.stdout.log ---\nHERMES_BACKEND_READY port=60900\nHERMES_DASHBOARD_READY port=60900\n--- serve.stderr.log ---\n  Hermes backend listening on 127.0.0.1:60900\n--- errors.log ---\n2026-10-07 05:09:45,212 WARNING hermes_cli.post_update: config migration skipped: This config predates version 12 (~2 years old) and can no longer be auto-migrated. Back up ~/.hermes/config.yaml and run `hermes setup` to regenerate, or manually set _config_version: 12 after reviewing the changelog.",
+  "forensic": [
+    "agent.log: 2026-10-07 05:09:54,208 INFO tui_gateway.ws: ws closed peer=127.0.0.1:60902 reason=client_disconnect(code=1006,reason=) messages=3 parse_errors=0 dispatch_crashes=0 send_failures=0 reaped_sessions=0 detached_sessions=1",
+    "gui.log: 2026-10-07 05:09:54,208 INFO tui_gateway.ws: ws closed peer=127.0.0.1:60902 reason=client_disconnect(code=1006,reason=) messages=3 parse_errors=0 dispatch_crashes=0 send_failures=0 reaped_sessions=0 detached_sessions=1"
+  ],
+  "errorsLog": "2026-10-07 05:09:45,212 WARNING hermes_cli.post_update: config migration skipped: This config predates version 12 (~2 years old) and can no longer be auto-migrated. Back up ~/.hermes/config.yaml and run `hermes setup` to regenerate, or manually set _config_version: 12 after reviewing the changelog.\n",
+  "cleanStop": "AttributeError: module 'os' has no attribute 'killpg'"
+}
