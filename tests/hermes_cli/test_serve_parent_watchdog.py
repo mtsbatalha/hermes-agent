@@ -274,6 +274,104 @@ def test_parent_watchdog_shuts_down_through_the_signal_path_not_os_exit(monkeypa
     assert hard_exits == [], "the watchdog must not bypass those handlers with os._exit"
 
 
+def _arm_watchdog(monkeypatch, *, orphaned):
+    """Arm the watchdog with a scripted ``_is_serve_orphaned`` and instrumented teardown.
+
+    Returns ``(threads, timers, raised, hard_exits)`` so a test can join the loop
+    thread, cancel the ceiling timers, and assert exactly how the shutdown ran.
+    ``HERMES_SERVE_WATCHDOG_POLL_S`` is pinned to the 0.5s floor so the scripted
+    polls run in ~1s of real time.
+    """
+    import threading as real_threading
+
+    from hermes_cli import web_server_lifecycle
+
+    monkeypatch.setenv("HERMES_PARENT_PID", "4242")
+    monkeypatch.delenv("HERMES_PARENT_START_MARKER", raising=False)
+    monkeypatch.delenv("HERMES_PARENT_NONCE", raising=False)
+    monkeypatch.setenv("HERMES_SERVE_WATCHDOG_POLL_S", "0.5")
+
+    monkeypatch.setattr(web_server_lifecycle, "_is_serve_orphaned", lambda *_args: orphaned())
+
+    raised = []
+    monkeypatch.setattr(web_server_lifecycle.signal, "raise_signal", raised.append)
+    hard_exits = []
+    monkeypatch.setattr(web_server_lifecycle.os, "_exit", lambda code: hard_exits.append(code))
+
+    threads = []
+    timers = []
+
+    class _FakeThreading:
+        """Real daemon thread for the loop; capturable ceiling timers."""
+
+        @staticmethod
+        def Thread(target, **_kw):
+            thread = real_threading.Thread(target=target, daemon=True)
+            threads.append(thread)
+            return thread
+
+        @staticmethod
+        def Timer(*args, **kwargs):
+            timer = real_threading.Timer(*args, **kwargs)
+            timers.append(timer)
+            return timer
+
+    monkeypatch.setattr(web_server_lifecycle, "threading", _FakeThreading)
+    web_server_lifecycle._start_parent_death_watchdog()
+    return threads, timers, raised, hard_exits
+
+
+def test_parent_watchdog_needs_more_than_one_orphaned_reading(monkeypatch):
+    """A single 'orphaned' sample must not kill a live, mid-turn backend.
+
+    One flaky probe (transient liveness hiccup, PID-recycling ambiguity) used to
+    shut the serve down on its very next loop iteration; the loop must keep
+    polling, and a healthy reading must reset the streak.
+    """
+    calls = []
+    script = iter([True, False])
+
+    def flaky():
+        calls.append(1)
+        try:
+            return next(script)
+        except StopIteration:
+            raise SystemExit  # enough polls observed; end the loop thread
+
+    threads, timers, raised, hard_exits = _arm_watchdog(monkeypatch, orphaned=flaky)
+    try:
+        threads[0].join(timeout=5)
+        assert not threads[0].is_alive(), "loop thread did not finish after the scripted polls"
+        assert raised == [], "one orphaned reading must not raise the shutdown signal"
+        assert hard_exits == []
+        assert len(calls) >= 3, "watchdog must keep polling past a lone 'orphaned' blip"
+    finally:
+        for timer in timers:
+            timer.cancel()
+
+
+def test_parent_watchdog_still_reaps_after_consecutive_orphaned_readings(monkeypatch):
+    """A genuinely dead parent still triggers the SIGTERM teardown."""
+    import signal
+
+    calls = []
+
+    def dead():
+        calls.append(1)
+        return True
+
+    threads, timers, raised, hard_exits = _arm_watchdog(monkeypatch, orphaned=dead)
+    try:
+        threads[0].join(timeout=5)
+        assert not threads[0].is_alive()
+        assert raised == [signal.SIGTERM]
+        assert hard_exits == [], "the watchdog must not bypass the flush handlers with os._exit"
+        assert len(calls) >= 2, "shutdown must wait for consecutive orphaned readings"
+    finally:
+        for timer in timers:
+            timer.cancel()
+
+
 def test_parent_watchdog_arms_a_daemon_hard_exit_ceiling(monkeypatch):
     """A stalled unwind must still reap the orphan, and the timer must outlive teardown joins."""
     import os

@@ -298,6 +298,13 @@ def _is_serve_orphaned(
 #: (``HERMES_TUI_EXIT_FLUSH_BUDGET_S``), still short enough to keep the reap prompt.
 _ORPHAN_EXIT_CEILING_S = 10.0
 
+#: Consecutive "orphaned" readings required before the watchdog acts. A single
+#: poll can misreport (transient liveness hiccup, degraded PID plumbing), and
+#: one bad sample used to kill a live, mid-turn backend. A healthy reading
+#: resets the streak, so oscillating probes keep the backend serving (#F1 in
+#: apps/desktop/spike/GATEWAY-DEATH-FINDINGS.md).
+_ORPHAN_SHUTDOWN_CONFIRMATIONS = 2
+
 
 def _request_orphan_shutdown() -> threading.Timer:
     """Ask this backend to shut itself down, with a hard-exit backstop.
@@ -360,7 +367,14 @@ def _start_parent_death_watchdog() -> None:
         poll = 2.0
 
     def _loop() -> None:
-        while not _is_serve_orphaned(desktop_pid, start_marker):
+        confirmations = 0
+        while True:
+            if _is_serve_orphaned(desktop_pid, start_marker):
+                confirmations += 1
+                if confirmations >= _ORPHAN_SHUTDOWN_CONFIRMATIONS:
+                    break
+            else:
+                confirmations = 0
             time.sleep(poll)
         try:
             _log.warning(
