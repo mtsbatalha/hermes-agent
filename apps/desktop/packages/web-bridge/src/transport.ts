@@ -36,8 +36,8 @@ export class BridgeError extends Error {
 
 /**
  * Set by the host page ONLY in development, where a bare `hermes serve` mints a
- * token and injects it into the served HTML. Empty in production, where the
- * session is an HttpOnly cookie the client never sees.
+ * token and injects it into the served HTML. Takes precedence over the
+ * page-injected token below so an explicit dev harness always wins.
  */
 let devSessionToken = ''
 let devGatewayOrigin = ''
@@ -57,6 +57,30 @@ export function setDevSessionToken(token: string): void {
  */
 export function setDevGatewayOrigin(origin: string): void {
   devGatewayOrigin = origin.replace(/\/$/, '')
+}
+
+/**
+ * The production credential, same-origin: when the server itself serves this
+ * bundle, its `mount_spa` injects the session token into index.html as
+ * `window.__HERMES_SESSION_TOKEN__` whenever the auth gate is OFF — the exact
+ * injection the Desktop shell already reads for /api/ws auth. Riding it is
+ * what lets the served web client authenticate without any dev override. A
+ * GATED server injects nothing (the credential is an HttpOnly cookie), so
+ * absent/typo'd/non-string values mean "no page token" and cookie auth stands
+ * alone — the injected token can never leak where the server didn't put it.
+ */
+function pageSessionToken(): string {
+  try {
+    const value = (window as unknown as { __HERMES_SESSION_TOKEN__?: unknown }).__HERMES_SESSION_TOKEN__
+    return typeof value === 'string' ? value : ''
+  } catch {
+    return ''
+  }
+}
+
+/** Explicit dev override first, then the serving page's injected token. */
+function sessionToken(): string {
+  return devSessionToken || pageSessionToken()
 }
 
 /** The origin the gateway socket is dialed on. Same-origin unless overridden. */
@@ -104,7 +128,7 @@ export type ApiOptions = Omit<ApiRequest, 'path'>
 export async function api<T>(path: string, options: ApiOptions = {}, member = 'api'): Promise<T> {
   const { method = 'GET', body, upload, timeoutMs, profile: scope } = options
   const headers: Record<string, string> = {}
-  if (devSessionToken) headers['X-Hermes-Session-Token'] = devSessionToken
+  if (sessionToken()) headers['X-Hermes-Session-Token'] = sessionToken()
 
   const init: RequestInit = { method, headers, credentials: 'same-origin' }
   if (timeoutMs) init.signal = AbortSignal.timeout(timeoutMs)
@@ -161,11 +185,12 @@ export type GatewayWsUrlResult = { ok: boolean; wsUrl?: string; error?: string }
  */
 export async function gatewayWsUrl(_profile?: string | null): Promise<GatewayWsUrlResult> {
   const url = gatewaySocketUrl('/api/ws')
-  // Development only: a bare loopback `hermes serve` has no cookie session, so
-  // the handshake needs the token in the query. Measured necessity — see
-  // CAPABILITY-MATRIX.md. In production this stays empty and the server expects
-  // a ticket in Sec-WebSocket-Protocol instead.
-  if (devSessionToken) url.searchParams.set('token', devSessionToken)
+  // Credential order: a dev override (`?token=`) or the page-injected session
+  // token (`?token=`, same injection the Desktop shell reads) — both for the
+  // token-auth servers. In production behind the auth gate neither exists and
+  // the server expects a ticket in Sec-WebSocket-Protocol instead.
+  const token = sessionToken()
+  if (token) url.searchParams.set('token', token)
   return { ok: true, wsUrl: url.toString() }
 }
 

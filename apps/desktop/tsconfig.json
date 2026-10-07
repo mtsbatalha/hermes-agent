@@ -16,9 +16,11 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "paths": {
       "@/*": ["./src/*"],
       "@hermes/plugin-sdk": ["./src/sdk/index.ts"],
+      "@hermes/web-bridge": ["./packages/web-bridge/src/index.ts"],
       "@hermes/shared/ansi": ["../shared/src/ansi.ts"],
       "@hermes/shared/billing": ["../shared/src/billing-types.ts"],
       "@hermes/shared/color": ["../shared/src/color.ts"],

@@ -92,6 +92,22 @@ if (winParam === 'overlay') {
   // client, where no native titlebar replaces it. See app/shell/web-client.ts.
   markWebClientRoot()
 
+  // PRODUCTION WEB CLIENT: when this bundle is served by the gateway (no
+  // Electron preload ran), install the web bridge BEFORE the app renders —
+  // boot reads window.hermesDesktop immediately, and an async install racing
+  // the render would boot bridge-less and never connect. A dynamic import
+  // keeps the bridge chunk out of the Electron bundle entirely; in Electron
+  // the preload already populated window.hermesDesktop, so this resolves
+  // without fetching anything. Credential model is production-native: the
+  // same-origin page either carries the server-injected
+  // __HERMES_SESSION_TOKEN__ or an HttpOnly cookie — no dev overrides here.
+  const bridgeReady: Promise<void> = window.hermesDesktop
+    ? Promise.resolve()
+    : import('@hermes/web-bridge').then(({ installWebBridge }) => {
+        installWebBridge()
+      })
+
+  void bridgeReady.then(() =>
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <RootErrorBoundary>
@@ -124,5 +140,5 @@ if (winParam === 'overlay') {
         </QueryClientProvider>
       </RootErrorBoundary>
     </StrictMode>
-  )
+  ))
 }

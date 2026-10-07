@@ -219,6 +219,9 @@ export default defineConfig(({ command }) => ({
       '@/debug/dev-only': debugEntry(command, process.env as Record<string, string>),
       '@': path.resolve(__dirname, './src'),
       '@hermes/plugin-sdk': path.resolve(__dirname, './src/sdk/index.ts'),
+      // The production web client's capability bridge (main.tsx installs it
+      // when no Electron preload ran; the spike harness imports it directly).
+      '@hermes/web-bridge': path.resolve(__dirname, './packages/web-bridge/src/index.ts'),
       '@hermes/shared/billing': path.resolve(__dirname, '../shared/src/billing-types.ts'),
       '@hermes/shared/color': path.resolve(__dirname, '../shared/src/color.ts'),
       '@hermes/shared': path.resolve(__dirname, '../shared/src'),

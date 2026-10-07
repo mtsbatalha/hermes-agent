@@ -9,7 +9,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { api, BridgeError, setDevSessionToken } from '../src/transport.ts'
+import { api, BridgeError, gatewayWsUrl, setDevSessionToken } from '../src/transport.ts'
 
 type FetchArgs = { url: string; init: RequestInit }
 
@@ -217,6 +217,71 @@ describe('api() failures', () => {
         expect(error.detail.length).toBeLessThan(400)
       }
     )
+  })
+})
+
+/**
+ * The production credential, same-origin: `mount_spa` injects the server's own
+ * session token into the served index.html (`window.__HERMES_SESSION_TOKEN__`)
+ * whenever the auth gate is OFF. The bridge must ride it — REST header and WS
+ * `?token=` — exactly like the dev override, or a served-by-the-gateway web
+ * client can never authenticate. A gated server injects NOTHING, so cookie
+ * auth stays the only path there and nothing leaks.
+ */
+describe('page-injected session token', () => {
+  beforeEach(() => {
+    setDevSessionToken('')
+    vi.stubGlobal('location', { origin: 'http://127.0.0.1:9119', protocol: 'http:' })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    setDevSessionToken('')
+    delete (globalThis as { __HERMES_SESSION_TOKEN__?: unknown }).__HERMES_SESSION_TOKEN__
+  })
+
+  it('rides the injected token as the REST auth header', () => {
+    ;(globalThis as { __HERMES_SESSION_TOKEN__?: unknown }).__HERMES_SESSION_TOKEN__ = 'served-token'
+    const calls = stubFetch()
+    return api('/api/profiles/active', {}, 'getProfileRoutes').then(() => {
+      const header = (calls[0].init.headers as Record<string, string>)['X-Hermes-Session-Token']
+      expect(header).toBe('served-token')
+    })
+  })
+
+  it('puts the injected token on the gateway socket handshake', () => {
+    ;(globalThis as { __HERMES_SESSION_TOKEN__?: unknown }).__HERMES_SESSION_TOKEN__ = 'served-token'
+    return gatewayWsUrl().then(result => {
+      expect(result.ok).toBe(true)
+      expect(result.wsUrl).toContain('token=served-token')
+    })
+  })
+
+  it('prefers the explicit dev override over the injected token', () => {
+    ;(globalThis as { __HERMES_SESSION_TOKEN__?: unknown }).__HERMES_SESSION_TOKEN__ = 'served-token'
+    setDevSessionToken('dev-token')
+    const calls = stubFetch()
+    return api('/api/profiles/active', {}, 'getProfileRoutes').then(() => {
+      const header = (calls[0].init.headers as Record<string, string>)['X-Hermes-Session-Token']
+      expect(header).toBe('dev-token')
+    })
+  })
+
+  it('sends no header when the page carries no token (gated server, cookie auth)', () => {
+    const calls = stubFetch()
+    return api('/api/profiles/active', {}, 'getProfileRoutes').then(() => {
+      const headers = calls[0].init.headers as Record<string, string>
+      expect(headers['X-Hermes-Session-Token']).toBeUndefined()
+    })
+  })
+
+  it('ignores a non-string injected token instead of interpolating it', () => {
+    ;(globalThis as { __HERMES_SESSION_TOKEN__?: unknown }).__HERMES_SESSION_TOKEN__ = 42
+    const calls = stubFetch()
+    return api('/api/profiles/active', {}, 'getProfileRoutes').then(() => {
+      const headers = calls[0].init.headers as Record<string, string>
+      expect(headers['X-Hermes-Session-Token']).toBeUndefined()
+    })
   })
 })
 
