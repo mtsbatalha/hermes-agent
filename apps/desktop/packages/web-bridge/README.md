@@ -54,10 +54,27 @@ host until removed; a chip removal does not implement server garbage collection.
 ## Development
 
 The production configuration is same-origin: the bundle is served _by_ the
-gateway, the session is an `HttpOnly` cookie the client never sees, and the
-socket is same-origin. `devSessionToken` and `devGatewayOrigin` exist only so
-the spike harness can point at a bare `hermes serve`, and are empty in
-production.
+gateway. The served page tells the bridge which deploy mode it is in
+(`window.__HERMES_AUTH_REQUIRED__`, set by `web_server_dashboard._serve_index`):
+
+- **Ungated** (loopback, first default deployment): the page carries
+  `window.__HERMES_SESSION_TOKEN__`; the bridge rides it as the
+  `X-Hermes-Session-Token` REST header and the `?token=` WS query. A non-string
+  value is ignored, so cookie auth stands alone.
+- **Gated** (public bind / non-loopback `dashboard.public_url`): no token is
+  injected. REST authenticates with the `HttpOnly` session cookie; the WS
+  upgrade needs a single-use 30s ticket, minted at the cookie-authed
+  `POST /api/auth/ws-ticket` and carried as `?ticket=` (a gated gateway rejects
+  `?token=` outright). A refused or unreachable mint surfaces as a
+  `BridgeError` naming the failed mint, never a silent socket close. Both modes
+  verified end to end against the real server (ungated: served dist + injected
+  token; gated: `apps/desktop/spike/_gated_serve.py` password harness — login →
+  HttpOnly cookies → REST 200/401 → ticket-gated WS → streamed turn).
+
+`devSessionToken` and `devGatewayOrigin` exist only so the spike harness can
+point at a bare `hermes serve` (`?token=` loopback query credential and a
+non-serving origin); the explicit override wins over the injected page token,
+and both are empty in production.
 
 ```bash
 npm run check --workspace @hermes/web-bridge # package typecheck + tests

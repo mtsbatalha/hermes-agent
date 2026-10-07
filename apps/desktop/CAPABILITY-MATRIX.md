@@ -38,17 +38,17 @@ hypothetical — it is what the first local deployment does.
 Three passes were run over `src/**` (2,722 `.ts`/`.tsx` files) and they disagree,
 so the rule is stated before the result:
 
-| Rule | Distinct members | Call sites | Files |
-|---|---:|---:|---:|
-| Spelled only — `hermesDesktop.<member>` | **128** | 390 | 163 |
-| **Alias-aware** (this document) | **152** | **978** | 190 |
-| Files that mention the bridge at all | — | — | **353** |
+| Rule                                    | Distinct members | Call sites |   Files |
+| --------------------------------------- | ---------------: | ---------: | ------: |
+| Spelled only — `hermesDesktop.<member>` |          **128** |        390 |     163 |
+| **Alias-aware** (this document)         |          **152** |    **978** |     190 |
+| Files that mention the bridge at all    |                — |          — | **353** |
 
 This corrects the framing the spike was handed. The renderer does **not** spell
 out `window.hermesDesktop.x`; it aliases the bridge to a local (`desktop`, and
 `bridge` in a few modules) and calls through that. Counting the spelled form
 alone reports 128 members and silently drops 24 that really are used. 353 is the
-count of files that *mention* the bridge, including type-only imports — it is an
+count of files that _mention_ the bridge, including type-only imports — it is an
 upper bound on files, not a measure of usage.
 
 1,191 call sites does not reproduce under any rule measured here. The naive pass
@@ -93,14 +93,52 @@ So the long-lived secret never has to sit in a URL, but the browser still needs 
 session it can spend: the mint call is REST, and REST is header/cookie only.
 That makes one architecture **mandatory, not preferred**:
 
-> **The client bundle is served by the Hermes backend on the same origin, and the
-> session stays in an `HttpOnly` cookie. The socket credential is a short-lived
-> ticket minted same-origin and presented in the subprotocol header.**
+> **The client bundle is served by the Hermes backend on the same origin. The
+> session credential depends on whether the auth gate is engaged — the two
+> deploy modes below.**
 
 A CDN-hosted client holding a bearer token is not a variant of this design; it is
 a different and unacceptable one. Holding a gateway token is equivalent to shell
 access on the host, so the query-string form (`?token=`) is the fallback for local
 development only — which is exactly how the spike runs.
+
+## The two deploy modes — as built and verified (Phase 3)
+
+The served page declares which mode it is in (`web_server_dashboard.py`,
+`_serve_index`: `window.__HERMES_AUTH_REQUIRED__` true/false, session token
+injected only in the ungated case), and `packages/web-bridge/src/transport.ts`
+branches on it:
+
+| | **Ungated** (loopback, gate off) | **Gated** (public bind or non-loopback
+`dashboard.public_url`) |
+|---|---|---|
+| Who serves the bundle | `SIM` `hermes dashboard --skip-build` with
+`HERMES_WEB_DIST` at the renderer dist (same mechanism the Desktop uses for the
+packaged renderer). `hermes serve` is headless by design and never mounts the
+SPA. ||
+| Page credential | `window.__HERMES_SESSION_TOKEN__` injected into index.html
+(read by the bridge as the REST header and the `?token=` WS query — the same
+injection the Desktop shell reads). ||
+| REST auth | `X-Hermes-Session-Token` header from the injected token. | `HttpOnly`
+session cookies (`credentials: same-origin`); the client never sees the value. |
+| WS auth | `?token=` in the query (the gateway refuses `?token=` on a gated
+gateway). | Single-use 30s ticket minted at the cookie-authed `POST
+/api/auth/ws-ticket`, carried as `?ticket=` on the upgrade; the ticket REPLACES
+any token query. The subprotocol-header form (`Sec-WebSocket-Protocol`) remains
+an accepted server-side variant. |
+| Failure surface | missing/unusable token: no header, cookie auth stands alone. | mint
+refused (session expired → re-login) or unreachable: a named `BridgeError`, not
+a bare socket close. |
+
+Both modes were verified end to end against the real server (ungated:
+dashboard --isolated --skip-build + injection, turn streamed and persisted;
+gated: `apps/desktop/spike/_gated_serve.py` — in-process password provider, gate
+engaged via `HERMES_DASHBOARD_PUBLIC_URL`, login → HttpOnly cookies → REST
+200/401 → ticket-gated WS → streamed turn persisted, with
+`typeof __HERMES_SESSION_TOKEN__ === 'undefined'` on the served page). The
+renderer installs the bridge itself when no Electron preload ran (main.tsx,
+dynamic import before first render, chunk kept out of the Electron bundle), so
+neither mode needs the spike's dev overrides.
 
 ## Scoping is a selector, and it is per-request
 
@@ -126,7 +164,7 @@ The two findings that changed this audit most:
 
 - **`git` is not a migration risk.** The earlier draft of this matrix called it
   the largest open item on the theory that 890 call sites would need a spike.
-  `/api/git/*` already maps 1:1 onto all ten `git.*` members *and* the entire
+  `/api/git/*` already maps 1:1 onto all ten `git.*` members _and_ the entire
   `git.review.*` sub-surface — stage, unstage, revert, commit, push, create-pr,
   pr-list, ship-info, commit-context. The item is closed by measurement. (The 890
   figure was the refuted naive count; the measured namespace access is 7.)
@@ -152,27 +190,27 @@ so Firefox and Safari need `<input type=file>` or a server-side file route;
 `getDisplayMedia` requires the user to pick a surface; the Battery Status API is
 **deprecated and Chromium-only** and ships as unavailable.
 
-The rule that survives from `AGENTS.md`: *window.open only ever happens behind a
-user click, never on behalf of preview content.*
+The rule that survives from `AGENTS.md`: _window.open only ever happens behind a
+user click, never on behalf of preview content._
 
 ## Column C — 58 members, closed
 
 Nothing in this column is waiting for approval. Each family states what the user
-sees instead, per the repo's own rule (`AGENTS.md:124-127`): *empty, loading,
+sees instead, per the repo's own rule (`AGENTS.md:124-127`): _empty, loading,
 reconnecting, degraded/stale, and exhausted-recovery each deserve their own
-honest copy and their own way out.* No member in this column is left as a stub
+honest copy and their own way out._ No member in this column is left as a stub
 that renders and does nothing.
 
-| Family | Members | Cut | What the user sees |
-|---|---:|---|---|
-| **C1** Window chrome and multi-window IPC | 10 | Custom titlebar, traffic lights, pop-out windows, cross-window relay, embed-host origin | The browser frame is the frame. "Open in a new window" becomes "open in a new tab" (a link); the pop-out Browser button becomes that link. One window, so nothing has to coordinate. |
-| **C2** Always-on-top overlay windows | 6 | HUD, pet, wake indicator, Quick Entry, hud modifier, onboarding window | Removed, not half-rendered. Quick Entry exists only as a documented in-page shortcut; the global chord is listed as unavailable. |
-| **C3** Native theming and glass | 3 | Titlebar/native theme, translucency | The web theme governs the surface. A fact member that has no browser answer reports a constant, so the renderer's own capability branch takes the "unsupported" path instead of guessing. |
-| **C4** DevTools / F12 and Electron input | 8 | F12 toggles, preview-shortcut flag, guest-hidden flag, `stopFindInPage`, open-find-bar and open-updates menu routes | The browser owns F12 and Ctrl+F. The FindBar is removed and Ctrl+F documented; Desktop-only toggles are hidden rather than shown dead. |
-| **C5** Preview `<webview>` internals | 5 | Guest crop, guest + host spellcheck dictionary, close-preview-request | Previews become sandboxed iframes. The two with no equivalent at all report an explicit "Not available in the browser client" — never an empty image or a silent no-op. |
-| **C6** Host lifecycle, bootstrap, packaging | 15 | Tray, relaunch, uninstall, backend retire/applied/revalidate events, the bootstrap cluster, plugin root, crash metrics, remote-display reason | A browser attaches to a gateway somebody else runs. Bootstrap collapses into one "Connect to a Hermes gateway" form; Settings reads "Managed on the host" where a Desktop-only action used to sit; the status bar reads "Gateway offline — retrying" with its countdown, because the socket close is the only signal a browser gets. |
-| **C7** Host resources out of reach | 7 | SSH config, OS trash, OS keychain, `read_window_below`, rename | Each shows "Not available in the web client" with the reason, instead of an empty list that reads as a bug. `/api/ssh/ownership` exists but answers "SSH ownership is not active", so the SSH pair is cut on measurement. |
-| **C8** The host OS file manager | 4 | `revealLogs`, `revealPath`, `openDir`, `logsRoot` | Removed rather than wired to `/api/env/reveal`, which is a different capability (see below). The path itself still shows, so it can be copied and opened wherever the file actually lives. |
+| Family                                      | Members | Cut                                                                                                                                           | What the user sees                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------------------- | ------: | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **C1** Window chrome and multi-window IPC   |      10 | Custom titlebar, traffic lights, pop-out windows, cross-window relay, embed-host origin                                                       | The browser frame is the frame. "Open in a new window" becomes "open in a new tab" (a link); the pop-out Browser button becomes that link. One window, so nothing has to coordinate.                                                                                                                                                 |
+| **C2** Always-on-top overlay windows        |       6 | HUD, pet, wake indicator, Quick Entry, hud modifier, onboarding window                                                                        | Removed, not half-rendered. Quick Entry exists only as a documented in-page shortcut; the global chord is listed as unavailable.                                                                                                                                                                                                     |
+| **C3** Native theming and glass             |       3 | Titlebar/native theme, translucency                                                                                                           | The web theme governs the surface. A fact member that has no browser answer reports a constant, so the renderer's own capability branch takes the "unsupported" path instead of guessing.                                                                                                                                            |
+| **C4** DevTools / F12 and Electron input    |       8 | F12 toggles, preview-shortcut flag, guest-hidden flag, `stopFindInPage`, open-find-bar and open-updates menu routes                           | The browser owns F12 and Ctrl+F. The FindBar is removed and Ctrl+F documented; Desktop-only toggles are hidden rather than shown dead.                                                                                                                                                                                               |
+| **C5** Preview `<webview>` internals        |       5 | Guest crop, guest + host spellcheck dictionary, close-preview-request                                                                         | Previews become sandboxed iframes. The two with no equivalent at all report an explicit "Not available in the browser client" — never an empty image or a silent no-op.                                                                                                                                                              |
+| **C6** Host lifecycle, bootstrap, packaging |      15 | Tray, relaunch, uninstall, backend retire/applied/revalidate events, the bootstrap cluster, plugin root, crash metrics, remote-display reason | A browser attaches to a gateway somebody else runs. Bootstrap collapses into one "Connect to a Hermes gateway" form; Settings reads "Managed on the host" where a Desktop-only action used to sit; the status bar reads "Gateway offline — retrying" with its countdown, because the socket close is the only signal a browser gets. |
+| **C7** Host resources out of reach          |       7 | SSH config, OS trash, OS keychain, `read_window_below`, rename                                                                                | Each shows "Not available in the web client" with the reason, instead of an empty list that reads as a bug. `/api/ssh/ownership` exists but answers "SSH ownership is not active", so the SSH pair is cut on measurement.                                                                                                            |
+| **C8** The host OS file manager             |       4 | `revealLogs`, `revealPath`, `openDir`, `logsRoot`                                                                                             | Removed rather than wired to `/api/env/reveal`, which is a different capability (see below). The path itself still shows, so it can be copied and opened wherever the file actually lives.                                                                                                                                           |
 
 Two members deserve a note because they look like cuts and are not:
 
@@ -194,14 +232,14 @@ Two members deserve a note because they look like cuts and are not:
 The renderer does not talk to the backend directly; it talks to one funnel
 (`api` for REST, plus the `tui_gateway` WebSocket).
 
-| Surface | Count | Where it goes |
-|---|---:|---|
-| JSON-RPC over `tui_gateway` | **251** methods (`RPC_METHODS`) | Unchanged — same socket, same contract. |
-| Server-initiated requests | **13** (`SERVER_REQUEST_METHODS`) | Unchanged — the browser subscribes over the same socket. |
-| Gateway event types | **75** (`GATEWAY_EVENT_TYPES`) | Unchanged — parsed by the same envelope handler. |
-| REST + WebSocket routes | **216** | Unchanged, same-origin behind the backend. |
-| `?profile=` scoping | query param | Unchanged; per-request contextvar with one global skills lock. |
-| The bridge itself | **157** declared / **152** used | **This is the only thing the port replaces.** |
+| Surface                     |                             Count | Where it goes                                                  |
+| --------------------------- | --------------------------------: | -------------------------------------------------------------- |
+| JSON-RPC over `tui_gateway` |   **251** methods (`RPC_METHODS`) | Unchanged — same socket, same contract.                        |
+| Server-initiated requests   | **13** (`SERVER_REQUEST_METHODS`) | Unchanged — the browser subscribes over the same socket.       |
+| Gateway event types         |    **75** (`GATEWAY_EVENT_TYPES`) | Unchanged — parsed by the same envelope handler.               |
+| REST + WebSocket routes     |                           **216** | Unchanged, same-origin behind the backend.                     |
+| `?profile=` scoping         |                       query param | Unchanged; per-request contextvar with one global skills lock. |
+| The bridge itself           |   **157** declared / **152** used | **This is the only thing the port replaces.**                  |
 
 The audit's real finding is not the size of the bridge — it is that the bridge is
 not a thin capability layer. 40 nested namespaces, 43 event subscriptions that
@@ -218,7 +256,7 @@ sections that follow now answer them. What is left is short:
 
 1. **A registry home for `connections`** — one small server endpoint mirroring
    `connections.json`, or an explicit per-browser list with the limitation stated
-   in Settings. See *`connections` — closed, on measurement*.
+   in Settings. See _`connections` — closed, on measurement_.
 2. **Deploy on `hermes dashboard`, not `hermes serve`.** The headless server
    refuses three routes the matrix promises. This is a one-line deployment
    decision, not work.
@@ -226,7 +264,7 @@ sections that follow now answer them. What is left is short:
    proven; the accept path needs an auth provider registered, which this machine
    does not have. Loopback is unavoidable in development and its `?token=` path
    puts a credential in the URL — so the client must ship with loopback labelled a
-   development mode. See *the gated ticket leg*.
+   development mode. See _the gated ticket leg_.
 
 ## Phase 2 — the WebBridge, as built and as measured
 
@@ -239,7 +277,7 @@ optional-chaining guard takes the "not here" branch.
 
 It is a package rather than app code because it has no React, no Electron and no
 renderer import — nothing in it needs the Desktop app to exist. That makes it
-directly testable, which is the point: see *What the package's tests catch* below.
+directly testable, which is the point: see _What the package's tests catch_ below.
 
 **43 of 157 members are live** (37 transport, 6 browser); **114 are cut**. The
 other 60 column-A members are web-native in principle and not yet wired — the
@@ -254,7 +292,7 @@ Three properties are enforced, not promised. `tools/audit-contract.mjs` fails
 the build when:
 
 - a declared member is neither implemented nor marked a cut (`BRIDGE INCOMPLETE`)
-- a member is marked a cut *and* implemented (`BRIDGE CONTRADICTION`)
+- a member is marked a cut _and_ implemented (`BRIDGE CONTRADICTION`)
 - a cut carries no user-facing copy (`CUT WITHOUT COPY`)
 - an implemented member names no endpoint (`NO ENDPOINT STATED`)
 - the bridge implements something the contract does not declare (`BRIDGE EXTRA`)
@@ -289,14 +327,14 @@ socket that opened, spawned a TUI, and could not be typed into.
 
 What the client sends, measured:
 
-| | |
-|---|---|
-| frames both ways | raw bytes, no envelope |
-| resize | in-band `\x1b[RESIZE:<cols>;<rows>]`, consumed server-side, and **only when it is the whole frame** (`_RESIZE_RE` + `match.end() == len(raw)`) — appended to a keystroke it reaches the PTY as text |
-| the child | `hermes --tui`, not a shell |
-| JSON the server sends | `{"type":"resume","id":…}`, an implicit session replay |
-| start failure | human-readable text, then close 1011 |
-| auth | the same `?token=` query leg as `/api/ws` |
+|                       |                                                                                                                                                                                                     |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| frames both ways      | raw bytes, no envelope                                                                                                                                                                              |
+| resize                | in-band `\x1b[RESIZE:<cols>;<rows>]`, consumed server-side, and **only when it is the whole frame** (`_RESIZE_RE` + `match.end() == len(raw)`) — appended to a keystroke it reaches the PTY as text |
+| the child             | `hermes --tui`, not a shell                                                                                                                                                                         |
+| JSON the server sends | `{"type":"resume","id":…}`, an implicit session replay                                                                                                                                              |
+| start failure         | human-readable text, then close 1011                                                                                                                                                                |
+| auth                  | the same `?token=` query leg as `/api/ws`                                                                                                                                                           |
 
 Exercised through the bridge's own `terminal` member in a real browser against
 the live gateway: **6229 bytes** of TUI screen on start, a typed keystroke grew
@@ -313,16 +351,16 @@ running) and `hermes dashboard --isolated` on `:9120`, both Hermes **0.21.5+7353
 authed with `X-Hermes-Session-Token: spike-token-123`, paths pointing at this repo.
 Repo HEAD and the installed build declare the **same 216 routes** (verified by
 diffing the two route tables — no version skew), so a 404 below is about the
-*call*, not the build.
+_call_, not the build.
 
 **The first finding is which server you deploy on.** `hermes serve` is headless and
 refuses part of the surface the matrix relies on:
 
-| Route | `serve` :9119 | `dashboard` :9120 |
-|---|---|---|
-| `/api/dashboard/agent-plugins*` | 404 `web UI disabled — use \`hermes dashboard\`` | 200 |
-| `/api/tools/terminal/backends` | 404 same | 200 `{"active":"local",…}` |
-| `/api/ops/doctor` | 404 same | 200 `{"ok":true,…}` (POST) |
+| Route                           | `serve` :9119                                    | `dashboard` :9120          |
+| ------------------------------- | ------------------------------------------------ | -------------------------- |
+| `/api/dashboard/agent-plugins*` | 404 `web UI disabled — use \`hermes dashboard\`` | 200                        |
+| `/api/tools/terminal/backends`  | 404 same                                         | 200 `{"active":"local",…}` |
+| `/api/ops/doctor`               | 404 same                                         | 200 `{"ok":true,…}` (POST) |
 
 > **The client bundle belongs on `hermes dashboard`, not `hermes serve`.** The
 > Phase 0 spike pointed the renderer at `hermes serve` and that choice would have
@@ -331,33 +369,33 @@ refuses part of the surface the matrix relies on:
 Confirmed working on the dashboard server, with real payloads — this is the
 evidence behind Column A, not a promise:
 
-| Route (method) | Status | Returns |
-|---|---:|---|
-| `/api/fs/list` (GET) | **200** | real `entries[]` |
-| `/api/fs/read-text` (GET) | **200** | `byteSize`, `language`, `mimeType` |
-| `/api/fs/read-data-url` (GET) | **200** | `data:text/markdown;base64,…` |
-| `/api/fs/git-root` (GET) | **200** | repo root |
-| `/api/git/status` (GET) | **200** | `branch: spike/web-renderer`, ahead/behind/staged |
-| `/api/git/branches` (GET) | **200** | local + remote branches |
-| `/api/git/base-branches` (GET) | **200** | branches, `isDefault` flagged |
-| `/api/git/worktrees` (GET) | **200** | worktree list |
-| `/api/git/file-diff` (GET) | **200** | unified diff |
-| `/api/git/review/list` (GET) | **200** | changed files with add/remove counts |
-| `/api/git/review/diff` (GET) | **200** | per-file diff |
-| `/api/git/gh-auth` (GET) | **200** | `{"available":false}` — no `gh` on this host |
-| `/api/profiles`, `/api/profiles/active` (GET) | **200** | roster + active |
-| `/api/hermes/update/check` (GET) | **200** | version, behind, `update_available` |
-| `/api/dashboard/themes`, `/font`, `/plugins`, `/plugins/rescan` (GET) | **200** | themes, font, plugin list, `{ok,count:2}` |
-| `/api/mcp/servers`, `/api/providers/oauth`, `/api/files`, `/api/chat/workspaces`, `/api/pairing`, `/api/env`, `/api/skills`, `/api/config`, `/api/status`, `/api/health`, `/api/host/identity`, `/api/local-models/status` (GET) | **200** | see the sweep in this commit's message |
+| Route (method)                                                                                                                                                                                                                   |  Status | Returns                                           |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------: | ------------------------------------------------- |
+| `/api/fs/list` (GET)                                                                                                                                                                                                             | **200** | real `entries[]`                                  |
+| `/api/fs/read-text` (GET)                                                                                                                                                                                                        | **200** | `byteSize`, `language`, `mimeType`                |
+| `/api/fs/read-data-url` (GET)                                                                                                                                                                                                    | **200** | `data:text/markdown;base64,…`                     |
+| `/api/fs/git-root` (GET)                                                                                                                                                                                                         | **200** | repo root                                         |
+| `/api/git/status` (GET)                                                                                                                                                                                                          | **200** | `branch: spike/web-renderer`, ahead/behind/staged |
+| `/api/git/branches` (GET)                                                                                                                                                                                                        | **200** | local + remote branches                           |
+| `/api/git/base-branches` (GET)                                                                                                                                                                                                   | **200** | branches, `isDefault` flagged                     |
+| `/api/git/worktrees` (GET)                                                                                                                                                                                                       | **200** | worktree list                                     |
+| `/api/git/file-diff` (GET)                                                                                                                                                                                                       | **200** | unified diff                                      |
+| `/api/git/review/list` (GET)                                                                                                                                                                                                     | **200** | changed files with add/remove counts              |
+| `/api/git/review/diff` (GET)                                                                                                                                                                                                     | **200** | per-file diff                                     |
+| `/api/git/gh-auth` (GET)                                                                                                                                                                                                         | **200** | `{"available":false}` — no `gh` on this host      |
+| `/api/profiles`, `/api/profiles/active` (GET)                                                                                                                                                                                    | **200** | roster + active                                   |
+| `/api/hermes/update/check` (GET)                                                                                                                                                                                                 | **200** | version, behind, `update_available`               |
+| `/api/dashboard/themes`, `/font`, `/plugins`, `/plugins/rescan` (GET)                                                                                                                                                            | **200** | themes, font, plugin list, `{ok,count:2}`         |
+| `/api/mcp/servers`, `/api/providers/oauth`, `/api/files`, `/api/chat/workspaces`, `/api/pairing`, `/api/env`, `/api/skills`, `/api/config`, `/api/status`, `/api/health`, `/api/host/identity`, `/api/local-models/status` (GET) | **200** | see the sweep in this commit's message            |
 
 Honest negatives — routes that do **not** deliver what Column A claimed:
 
-| Route | Status | Consequence for the matrix |
-|---|---:|---|
-| `/api/ssh/ownership` | 404 `SSH ownership is not active` | The feature is off. `sshConfigHosts` / `sshResolveHost` have **no working** server equivalent — the C7 cut is now measured, not assumed. |
-| `/api/media/proxy?url=https://example.com` | **403** `Image host not allowed` | It is an allowlisted proxy, not an open one. `resolveFavicon` and `saveImageFromUrl` (Column B) must design for an allowlist. |
-| `/api/ops/doctor` (GET) | 404/405 | It is **POST**-only. My first sweep reported this as a missing route; the real answer was my method. |
-| `/api/files/download` | 422 missing `path` | Exists; I called it wrong. |
+| Route                                      |                            Status | Consequence for the matrix                                                                                                               |
+| ------------------------------------------ | --------------------------------: | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/ssh/ownership`                       | 404 `SSH ownership is not active` | The feature is off. `sshConfigHosts` / `sshResolveHost` have **no working** server equivalent — the C7 cut is now measured, not assumed. |
+| `/api/media/proxy?url=https://example.com` |  **403** `Image host not allowed` | It is an allowlisted proxy, not an open one. `resolveFavicon` and `saveImageFromUrl` (Column B) must design for an allowlist.            |
+| `/api/ops/doctor` (GET)                    |                           404/405 | It is **POST**-only. My first sweep reported this as a missing route; the real answer was my method.                                     |
+| `/api/files/download`                      |                422 missing `path` | Exists; I called it wrong.                                                                                                               |
 
 That correction is worth stating plainly: **four "missing routes" in my first
 sweep were four method errors on my side** (`/api/ops/doctor` is POST,
@@ -377,14 +415,14 @@ putting a long-lived credential in a URL. Three facts, each measured:
 `_gateway_ws_ticket_from_subprotocol` with the real constants
 (`hermes-gateway-v1`, prefix `hermes-gateway-ticket.`):
 
-| `Sec-WebSocket-Protocol` sent | Result |
-|---|---|
-| `hermes-gateway-ticket.<t>, hermes-gateway-v1` | `('<t>', 'ok')` |
+| `Sec-WebSocket-Protocol` sent                             | Result                              |
+| --------------------------------------------------------- | ----------------------------------- |
+| `hermes-gateway-ticket.<t>, hermes-gateway-v1`            | `('<t>', 'ok')`                     |
 | `hermes-gateway-v1, hermes-gateway-ticket.<t>` (reversed) | `('<t>', 'ok')` — order-independent |
-| ticket protocol **alone** | `('', 'invalid')` |
-| public protocol alone | `('', 'none')` |
-| **two** ticket protocols | `('', 'invalid')` |
-| prefix with an empty ticket | `('', 'invalid')` |
+| ticket protocol **alone**                                 | `('', 'invalid')`                   |
+| public protocol alone                                     | `('', 'none')`                      |
+| **two** ticket protocols                                  | `('', 'invalid')`                   |
+| prefix with an empty ticket                               | `('', 'invalid')`                   |
 
 A ticket can never travel without the public protocol, and two of them is an
 error. The credential is carried in a **header**, never a URL, and never
@@ -396,7 +434,7 @@ rejected `unknown ticket`; a ticket past its TTL is rejected `expired`. Single-u
 and time-boxed, as documented.
 
 **3. The mint endpoint is unreachable outside gated mode — and that is the
-finding.** `POST /api/auth/ws-ticket` returned **401** on *both* live servers
+finding.** `POST /api/auth/ws-ticket` returned **401** on _both_ live servers
 even with a valid session-token header. `_require_session` reads
 `request.state.session`, which only the auth gate sets; on a loopback bind the
 gate is off and no session is ever established. And gated mode is not something a
@@ -404,12 +442,12 @@ client can opt into: `should_require_auth` is `host not in _LOOPBACK_HOST_VALUES
 and `--insecure` is documented as **DEPRECATED / NO-OP** — a public bind always
 requires a real password or OAuth provider.
 
-> **Conclusion, and it sharpens the plan.** The header ticket path is sound *in
-> gated mode*, and a browser can use it there: cookie session → `POST
-> /api/auth/ws-ticket` → subprotocol handshake. But **the first deployment anyone
+> **Conclusion, and it sharpens the plan.** The header ticket path is sound _in
+> gated mode_, and a browser can use it there: cookie session → `POST
+/api/auth/ws-ticket` → subprotocol handshake. But **the first deployment anyone
 > runs is loopback, where the ticket endpoint is 401 and the only working
 > credential is `?token=` in the query string.** Same-origin + `HttpOnly` cookie
-> is therefore not merely preferable — it is the *only* design that makes a public
+> is therefore not merely preferable — it is the _only_ design that makes a public
 > bind safe, and it does nothing for loopback, where the token sits in the URL by
 > necessity. The Phase 2 client must treat loopback as a development-only mode and
 > say so, rather than let the local path become the shipped default.
@@ -431,11 +469,11 @@ Ten members, 22 call sites, 19 files. Persistence is
 browser and served by no route. Called on the dashboard server, the nearest
 surfaces are:
 
-| Route | Status | What it actually is |
-|---|---:|---|
-| `/api/profiles` | 200 | HERMES_HOME profiles, not connection *sources* |
-| `/api/profiles/active` | 200 | the active profile name |
-| `/api/chat/workspaces` | 200 | `{projects, repos, default_cwd, home}` — repos, not registry entries |
+| Route                  | Status | What it actually is                                                  |
+| ---------------------- | -----: | -------------------------------------------------------------------- |
+| `/api/profiles`        |    200 | HERMES_HOME profiles, not connection _sources_                       |
+| `/api/profiles/active` |    200 | the active profile name                                              |
+| `/api/chat/workspaces` |    200 | `{projects, repos, default_cwd, home}` — repos, not registry entries |
 
 So the registry itself has **no server home**, and `/api/profiles` is not a
 substitute: a registry entry is a dialable source (local / remote / cloud / ssh)
@@ -446,9 +484,9 @@ column closes like this:
   list/save/remove/set-primary plus the existing `onChanged` push. It is the only
   new server surface the whole matrix requires.
 - **Until it exists, the honest v1 behaviour is per-browser**: the endpoint list
-  lives in the browser, and Settings states that plainly — *"Your gateway list is
+  lives in the browser, and Settings states that plainly — _"Your gateway list is
   stored in this browser only. Add the same gateway on another device to use it
-  there."* That is degraded-with-copy, not a silent divergence.
+  there."_ That is degraded-with-copy, not a silent divergence.
 - **`connections.test` has a real equivalent** (`/api/profiles/…`, `/api/status`
   reachability) so testing a saved entry is not blocked by the missing registry.
 - Not a cut: the capability is core. Not a cut by accident either: the renderer
@@ -465,17 +503,17 @@ A test that passes against broken code is worse than no test, so each of the
 regressions this port actually shipped was **reintroduced** to confirm the
 suite catches it:
 
-| Reintroduced bug | Caught by |
-|---|---|
-| `scheme + '//' + origin` — the socket URL parsed with host `http` | 10 URL tests fail |
-| `profile=${String(scope)}` — the literal `undefined` in the query | 3 scope tests fail |
-| `pickDefaultProjectDir: undefined as never` | `has no key whose value is undefined` |
-| Save stores a descriptor subset, never reads it back, asserts `gatewayRunning: true` | 7 connection tests fail |
+| Reintroduced bug                                                                     | Caught by                             |
+| ------------------------------------------------------------------------------------ | ------------------------------------- |
+| `scheme + '//' + origin` — the socket URL parsed with host `http`                    | 10 URL tests fail                     |
+| `profile=${String(scope)}` — the literal `undefined` in the query                    | 3 scope tests fail                    |
+| `pickDefaultProjectDir: undefined as never`                                          | `has no key whose value is undefined` |
+| Save stores a descriptor subset, never reads it back, asserts `gatewayRunning: true` | 7 connection tests fail               |
 
 Two of those mutations first **passed**, and both times the mutation was wrong
 rather than the test. `const profile = scope` is absorbed by the `profile ? …`
 truthiness guard downstream, so it never produced the bug; and inserting
-`pickDefaultProjectDir: undefined` as a *duplicate* key left the real
+`pickDefaultProjectDir: undefined` as a _duplicate_ key left the real
 implementation to overwrite it. A duplicate key that shadows nothing is a
 different bug — silent — and is worth its own audit check.
 
@@ -557,7 +595,7 @@ asking the gateway. What the two members do now:
 
 Then the part curl could not answer. `web_server.py:442` installs CORSMiddleware
 for localhost origins, and a `curl` with an `Origin` header comes back with a
-correct `access-control-allow-origin` — so a cross-origin probe *looks* fine.
+correct `access-control-allow-origin` — so a cross-origin probe _looks_ fine.
 In a real browser it failed anyway:
 
 ```
@@ -609,7 +647,7 @@ three defects in one flow, all reproduced before they were fixed.
 3. **`gatewayRunning` was hardcoded `true` in save and derived in read.** The two
    members disagreed about the same fact. Measured against a real `hermes serve`:
    `/api/status` answers `"gateway_running": false, "gateway_state": "stopped"`.
-   That is the *messaging* gateway, not the HTTP API that answered the request,
+   That is the _messaging_ gateway, not the HTTP API that answered the request,
    so "the API replied" is not evidence that it runs. Both members now read that
    one field.
 
@@ -620,7 +658,7 @@ now, asserted by a key-set test.
 
 What this batch does **not** claim: switching gateways is still refused, and the
 web client cannot dial a remote or SSH endpoint at all. Saving persists an
-*endpoint entry* for this origin, not a connection.
+_endpoint entry_ for this origin, not a connection.
 
 ## Measured: what each screen actually degrades into
 
@@ -643,20 +681,20 @@ Each reach of a cut member is classified by what actually happens when the
 member is missing — and the bridge OMITS cut members rather than defining them
 `undefined`, so:
 
-| | |
-|---|---|
-| **guarded** | the optional chain continues past the member (`?.member?.()`), or the value is a truthiness probe, or the local it was bound to is guarded before use |
-| **contained** | a bare call, but guarded earlier in the same function or inside an open `try` — it throws into an error state the UI already draws |
-| **BREAKS** | a bare call, reachable, with no guard and no catch |
+|               |                                                                                                                                                       |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **guarded**   | the optional chain continues past the member (`?.member?.()`), or the value is a truthiness probe, or the local it was bound to is guarded before use |
+| **contained** | a bare call, but guarded earlier in the same function or inside an open `try` — it throws into an error state the UI already draws                    |
+| **BREAKS**    | a bare call, reachable, with no guard and no catch                                                                                                    |
 
 Only the third is a defect. The static pass finds **3**, and all three are real
 bare calls in code paths that a browser navigation never enters:
 
-| member | where | why navigation does not reach it |
-|---|---|---|
-| `revealLogs` | `src/components/error-boundary.tsx:188` | `revealLogs()?.catch(…)` — the `?.` guards the RESULT, not the call. Only renders after something already crashed |
-| `revealLogs` | `src/app/settings/gateway-settings.tsx:1491` | a button handler; navigation never clicks it |
-| `quickEntry` | `src/app/contrib/hooks/use-quick-entry-bridge.ts:109` | `?.quickEntry.ackSubmit(…)`; only fires on a native summon gesture the browser has no equivalent for |
+| member       | where                                                 | why navigation does not reach it                                                                                  |
+| ------------ | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `revealLogs` | `src/components/error-boundary.tsx:188`               | `revealLogs()?.catch(…)` — the `?.` guards the RESULT, not the call. Only renders after something already crashed |
+| `revealLogs` | `src/app/settings/gateway-settings.tsx:1491`          | a button handler; navigation never clicks it                                                                      |
+| `quickEntry` | `src/app/contrib/hooks/use-quick-entry-bridge.ts:109` | `?.quickEntry.ackSubmit(…)`; only fires on a native summon gesture the browser has no equivalent for              |
 
 These are findings about **Hermes' renderer**, not about the bridge, so they are
 recorded rather than patched: the port is a second client, and editing upstream
@@ -677,10 +715,10 @@ Proxy is the thing the real bridge must never be — a `has()` that answers true
 for everything sent the renderer down a routing path that did not exist. Fine for
 measuring, not for shipping.)
 
-| | static reach | read at runtime |
-|---|---|---|
-| cut members reachable from some root | 56 / 58 | **23 / 58** |
-| routes touching any cut member | 17 / 17 | **12 / 12** |
+|                                      | static reach | read at runtime |
+| ------------------------------------ | ------------ | --------------- |
+| cut members reachable from some root | 56 / 58      | **23 / 58**     |
+| routes touching any cut member       | 17 / 17      | **12 / 12**     |
 
 **What this probe can and cannot say.** Navigating all twelve routes produced zero
 renderer exceptions during that window, and the reads it recorded sit in
