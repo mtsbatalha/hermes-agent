@@ -112,10 +112,11 @@ branches on it:
 | | **Ungated** (loopback, gate off) | **Gated** (public bind or non-loopback
 `dashboard.public_url`) |
 |---|---|---|
-| Who serves the bundle | `SIM` `hermes dashboard --skip-build` with
-`HERMES_WEB_DIST` at the renderer dist (same mechanism the Desktop uses for the
-packaged renderer). `hermes serve` is headless by design and never mounts the
-SPA. ||
+| Who serves the bundle | Either mode: `hermes dashboard --skip-build` with
+`HERMES_WEB_DIST` pointed at the renderer dist (the same mechanism the Desktop
+uses for the packaged renderer; without the env var the server builds `web/`
+itself). `hermes serve` is headless by design and never mounts the SPA — it is
+the pure JSON-RPC/WS backend the Desktop spawns and/or a remote client dials. ||
 | Page credential | `window.__HERMES_SESSION_TOKEN__` injected into index.html
 (read by the bridge as the REST header and the `?token=` WS query — the same
 injection the Desktop shell reads). ||
@@ -139,6 +140,34 @@ engaged via `HERMES_DASHBOARD_PUBLIC_URL`, login → HttpOnly cookies → REST
 renderer installs the bridge itself when no Electron preload ran (main.tsx,
 dynamic import before first render, chunk kept out of the Electron bundle), so
 neither mode needs the spike's dev overrides.
+
+### Deploying the web client (both modes)
+
+```bash
+# 1. Build the renderer dist (production bundle; the spike's vite.config is NOT
+#    part of this — it exists only to proxy REST in the spike harness).
+cd apps/desktop && npx vite build
+
+# 2. Serve it with the gateway, whichever mode:
+export HERMES_WEB_DIST=/abs/path/to/apps/desktop/dist
+hermes dashboard --skip-build --host 127.0.0.1 --port 9211            # ungated (loopback)
+HERMES_DASHBOARD_PUBLIC_URL=https://hermes.example.com \
+  hermes dashboard --skip-build --port 9211                     # gated (gate + password/OAuth provider)
+# Optional: --isolated runs a dedicated server instead of attaching to a
+# machine-level one; --isolated must also be combined with --host 127.0.0.1
+
+# 3. Sanity checks
+
+curl -s http://127.0.0.1:9211/ | grep __HERMES_SESSION_TOKEN__        # ungated: token injected
+curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:9211/         # gated: 302 /login
+```
+
+`--skip-build` skips the server's own `web/` build and trusts the caller to
+have pre-built the dist (one recovery build on the default location if it is
+missing); `HERMES_WEB_DIST` is validated like the `--skip-build` branch — see
+`_resolve_dashboard_web_dist` in `hermes_cli/main_dashboard.py`. Never point
+`HERMES_WEB_DIST` at a directory you don't control: the server will serve
+whatever `index.html` it finds there.
 
 ## Scoping is a selector, and it is per-request
 

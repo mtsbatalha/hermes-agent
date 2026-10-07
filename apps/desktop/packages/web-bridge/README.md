@@ -51,6 +51,29 @@ host until removed; a chip removal does not implement server garbage collection.
 
 `src/manifest.ts` is **generated** — run `node apps/desktop/tools/audit-contract.mjs --write`.
 
+## Deployment
+
+The web client ships as the renderer build served by the gateway itself —
+there is no CDN copy and no separately-hosted origin (see the CAPABILITY-MATRIX's
+"Hard constraint": a client holding a gateway token off-origin is a different and
+unacceptable design). Both modes use the same recipe:
+
+```bash
+cd apps/desktop
+npx vite build                        # renderer dist (production bundle)
+export HERMES_WEB_DIST="$PWD/dist"
+hermes dashboard --skip-build --host 127.0.0.1 --port 9119    # ungated (loopback)
+HERMES_DASHBOARD_PUBLIC_URL=https://hermes.example.com \
+  hermes dashboard --skip-build --port 9119            # gated (password/OAuth provider required)
+```
+
+`hermes serve` is headless by design (JSON-RPC/WS only, never mounts the SPA);
+the Desktop runs it and injects its own packaged dist via the same env var.
+`--skip-build` trusts the caller to have pre-built the dist; `HERMES_WEB_DIST`
+is validated before startup (see `_resolve_dashboard_web_dist` in
+`hermes_cli/main_dashboard.py`). The served page declares the deploy mode to
+the bridge, which branches its credential handling accordingly (below).
+
 ## Development
 
 The production configuration is same-origin: the bundle is served _by_ the
