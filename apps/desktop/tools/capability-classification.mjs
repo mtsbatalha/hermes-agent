@@ -24,9 +24,12 @@ export const A = {
   getGatewayWsUrlFor: 'Registry-scoped mint. Boot-critical; the renderer branches on its presence.',
   getAgentRoster: 'Union roster over registered connections → /api/profiles.',
   getProfileRoutes: 'Credential-free routes → /api/profiles/active.',
-  getConnectionConfig: 'The descriptor is built client-side from the endpoint URL the user typed.',
-  saveConnectionConfig: 'Client-side persistence of the endpoint entry.',
-  applyConnectionConfig: 'Re-dial against the new descriptor.',
+  getConnectionConfig:
+    'The ACTIVE connection (always the gateway that served this page) plus the stored endpoint entry read back from localStorage.',
+  saveConnectionConfig:
+    'Verified localStorage write of the full endpoint entry; rejects rather than reporting a save the browser did not keep.',
+  applyConnectionConfig:
+    'Explicit BridgeError refusal: no gateway re-dial is implemented; open the target gateway URL.',
   testConnectionConfig: 'Reachability probe against the saved descriptor.',
   api: 'The REST funnel. One function to reimplement; 101 measured call sites behind it.',
   claimStartupLatency: 'Client-measurable (performance.now) — no host fact needed.',
@@ -110,15 +113,16 @@ export const B = {
   screenshot: 'getDisplayMedia — the user must pick a surface; no silent capture.',
   notify: 'Notification API — denied by default on Android; push is the only durable answer.',
   requestMicrophoneAccess: 'getUserMedia — needs HTTPS and a permission prompt.',
-  selectPaths: 'showOpenFilePicker (Chromium) / <input type=file> elsewhere.',
+  selectPaths:
+    'showOpenFilePicker → GET /api/files + POST /api/files/upload-stream; returns gateway paths. Browser folders unsupported.',
   selectSavePath: 'showSaveFilePicker (Chromium) / anchor download elsewhere.',
   writeClipboard: 'navigator.clipboard.write — needs transient activation.',
   readClipboard: 'navigator.clipboard.read — needs transient activation.',
   saveImageFromUrl:
     'anchor + download. /api/media/proxy measured 403 for a non-allowlisted host, so the allowlist is part of the design.',
-  saveImageBuffer: 'anchor + download. A real download, no silent path.',
-  savePastedText: 'anchor + download.',
-  saveClipboardImage: 'navigator.clipboard.read image + download.',
+  saveImageBuffer: 'POST /api/files/upload-stream into .hermes-web-attachments (same staging as selectPaths).',
+  savePastedText: 'POST /api/files/upload-stream into .hermes-web-attachments (pasted_content name shape).',
+  saveClipboardImage: 'navigator.clipboard.read image → POST /api/files/upload-stream.',
   getPathForFile: 'File / FileReader, Blob URLs — drag-and-drop attach works natively.',
   contextMenuEdit: 'Clipboard API against the focused element.',
   contextMenuCopyImage: 'Canvas → data URL → clipboard.',

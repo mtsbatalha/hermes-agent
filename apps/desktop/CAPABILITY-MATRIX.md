@@ -12,20 +12,20 @@ its call-site count and file count.
 
 ## Verdict
 
-The renderer is already web code, and the backend already serves almost
-everything it asks the host for. **62 of 157 members need no decision at all** —
-the browser speaks them unchanged because the capability already lives behind
-REST or the gateway socket. **31** need a browser API written for them.
-**64** have no browser equivalent and are cut, in seven named families, each with
-the copy the UI shows instead.
+The renderer is already web code. Current classification is **A=68 / B=31 /
+C=58**, with cuts in eight families. Classification is not implementation:
+the bridge exposes 50 of 157 top-level members, and the audit still reports
+49 column-A members unwired. Some exposed members provide explicit refusals or
+partial behavior; they must not be counted as complete desktop feature parity.
 
 The port replaces one object, not 157 features.
 
-**Measured, not assumed: cutting 58 members does not break the app.** Every route
-reads 21–23 of them at runtime, all from always-mounted chrome, and navigating all
-twelve produced zero renderer faults. 35 of the 58 cuts are never touched by a
-live screen at all. The three bare calls that would throw live in paths a browser
-navigation never enters. See "what each screen actually degrades into" below.
+**Route loading is not workflow coverage.** The earlier navigation probe observed
+21–23 cut-member reads per route and no renderer exceptions during that short
+window. It did not click actions, wait for every data request, or prove that all
+routes painted their intended content. The 35 cuts not observed in that probe
+may still be reached by later actions. Real workflow checks below reproduced
+failures that navigation alone missed.
 
 Two things only calling the server could have told us, both now measured below:
 the bundle belongs on **`hermes dashboard`**, because the headless `hermes serve`
@@ -113,7 +113,7 @@ rather than corrupting config. v1 connects to one profile per tab; the port does
 not inherit a per-request isolation bug, and it must not assume per-connection
 isolation either.
 
-## Column A — 62 members, already web-native
+## Column A — 68 members, already web-native
 
 They carry no machine authority. Each is data or an RPC the backend already owns,
 so the browser speaks it unchanged. The endpoint column in the appendix is not
@@ -155,7 +155,7 @@ so Firefox and Safari need `<input type=file>` or a server-side file route;
 The rule that survives from `AGENTS.md`: *window.open only ever happens behind a
 user click, never on behalf of preview content.*
 
-## Column C — 64 members, closed
+## Column C — 58 members, closed
 
 Nothing in this column is waiting for approval. Each family states what the user
 sees instead, per the repo's own rule (`AGENTS.md:124-127`): *empty, loading,
@@ -167,11 +167,12 @@ that renders and does nothing.
 |---|---:|---|---|
 | **C1** Window chrome and multi-window IPC | 10 | Custom titlebar, traffic lights, pop-out windows, cross-window relay, embed-host origin | The browser frame is the frame. "Open in a new window" becomes "open in a new tab" (a link); the pop-out Browser button becomes that link. One window, so nothing has to coordinate. |
 | **C2** Always-on-top overlay windows | 6 | HUD, pet, wake indicator, Quick Entry, hud modifier, onboarding window | Removed, not half-rendered. Quick Entry exists only as a documented in-page shortcut; the global chord is listed as unavailable. |
-| **C3** Native theming and glass | 5 | Titlebar/native theme, translucency, `glassSupported`, `translucencySupported` | The web theme governs the surface. The two fact members report a constant so the renderer's own capability branches take the "unsupported" path instead of guessing. |
+| **C3** Native theming and glass | 3 | Titlebar/native theme, translucency | The web theme governs the surface. A fact member that has no browser answer reports a constant, so the renderer's own capability branch takes the "unsupported" path instead of guessing. |
 | **C4** DevTools / F12 and Electron input | 8 | F12 toggles, preview-shortcut flag, guest-hidden flag, `stopFindInPage`, open-find-bar and open-updates menu routes | The browser owns F12 and Ctrl+F. The FindBar is removed and Ctrl+F documented; Desktop-only toggles are hidden rather than shown dead. |
 | **C5** Preview `<webview>` internals | 5 | Guest crop, guest + host spellcheck dictionary, close-preview-request | Previews become sandboxed iframes. The two with no equivalent at all report an explicit "Not available in the browser client" — never an empty image or a silent no-op. |
-| **C6** Host lifecycle, bootstrap, packaging | 22 | Tray, relaunch, uninstall, pool sizing/keepalive, backend exit/retire/applied events, the whole bootstrap cluster, crash metrics, remote-display reason | A browser attaches to a gateway somebody else runs. Bootstrap collapses into one "Connect to a Hermes gateway" form; Settings reads "Managed on the host" where a Desktop-only action used to sit; the status bar reads "Gateway offline — retrying" with its countdown, because the socket close is the only signal a browser gets. |
-| **C7** Host resources out of reach | 8 | SSH config, OS trash, OS keychain, `read_window_below`, host log lines | Each shows "Not available in the web client" with the reason, instead of an empty list that reads as a bug. |
+| **C6** Host lifecycle, bootstrap, packaging | 15 | Tray, relaunch, uninstall, backend retire/applied/revalidate events, the bootstrap cluster, plugin root, crash metrics, remote-display reason | A browser attaches to a gateway somebody else runs. Bootstrap collapses into one "Connect to a Hermes gateway" form; Settings reads "Managed on the host" where a Desktop-only action used to sit; the status bar reads "Gateway offline — retrying" with its countdown, because the socket close is the only signal a browser gets. |
+| **C7** Host resources out of reach | 7 | SSH config, OS trash, OS keychain, `read_window_below`, rename | Each shows "Not available in the web client" with the reason, instead of an empty list that reads as a bug. `/api/ssh/ownership` exists but answers "SSH ownership is not active", so the SSH pair is cut on measurement. |
+| **C8** The host OS file manager | 4 | `revealLogs`, `revealPath`, `openDir`, `logsRoot` | Removed rather than wired to `/api/env/reveal`, which is a different capability (see below). The path itself still shows, so it can be copied and opened wherever the file actually lives. |
 
 Two members deserve a note because they look like cuts and are not:
 
@@ -182,6 +183,11 @@ Two members deserve a note because they look like cuts and are not:
   belong to the gateway that holds them. Settings states that they are stored by
   the host rather than offering a toggle that cannot protect anything in a
   browser.
+- **`revealLogs` / `revealPath` / `openDir` / `logsRoot` (C8)** — these look like
+  file actions and were classified as A against `/api/env/reveal`. That route
+  reveals the **unredacted value of one environment variable**, so wiring them to
+  it would POST a secret-unmasking request instead of opening a folder. Measured:
+  there is no server route for `shell.showItemInFolder` or `shell.openPath`.
 
 ## The gateway surface the matrix is written against
 
@@ -451,12 +457,12 @@ column closes like this:
 
 ### What the package's tests catch
 
-48 tests run in `npm run check` (`check:web-bridge`), covering the two
+100 tests run in `npm run check` (`check:web-bridge`), covering the two
 string-handling paths where a subtle bug cost a debugging cycle, plus the
 capability invariants above.
 
 A test that passes against broken code is worse than no test, so each of the
-three regressions this port actually shipped was **reintroduced** to confirm the
+regressions this port actually shipped was **reintroduced** to confirm the
 suite catches it:
 
 | Reintroduced bug | Caught by |
@@ -464,6 +470,7 @@ suite catches it:
 | `scheme + '//' + origin` — the socket URL parsed with host `http` | 10 URL tests fail |
 | `profile=${String(scope)}` — the literal `undefined` in the query | 3 scope tests fail |
 | `pickDefaultProjectDir: undefined as never` | `has no key whose value is undefined` |
+| Save stores a descriptor subset, never reads it back, asserts `gatewayRunning: true` | 7 connection tests fail |
 
 Two of those mutations first **passed**, and both times the mutation was wrong
 rather than the test. `const profile = scope` is absorbed by the `profile ? …`
@@ -534,6 +541,20 @@ security fields are **reported truthfully rather than optimistically**:
 `remoteTokenPlainText` is `true` exactly when a token is sitting in browser
 storage. The token is never returned, only a short preview.
 
+Writing to a key is not the same as persisting, and the first version proved
+that the hard way (see **Phase 3, third batch** below): it wrote a subset of the
+descriptor, never read it back, and reported `gatewayRunning: true` without
+asking the gateway. What the two members do now:
+
+- `saveConnectionConfig` **verifies** the write and throws a `BridgeError` when
+  storage is blocked, full, or silently drops the entry. The response is built
+  from what storage returned, so what the renderer adopts is what a reload reads.
+- `getConnectionConfig` reads that entry back, and reports `mode: 'local'`
+  because that is the connection this client actually holds — it is served by one
+  gateway, and `applyConnectionConfig` refuses to dial another. Echoing a stored
+  `remote`/`ssh` draft into `mode` would fabricate a profile remote-badge, a
+  startup-profile choice and a boot sign-in path for a host never contacted.
+
 Then the part curl could not answer. `web_server.py:442` installs CORSMiddleware
 for localhost origins, and a `curl` with an `Origin` header comes back with a
 correct `access-control-allow-origin` — so a cross-origin probe *looks* fine.
@@ -567,12 +588,47 @@ has observed succeed. This stays the largest open item in the port, and the
 loopback `?token=` path it falls back to in development puts a credential in the
 URL — so loopback must ship labelled a development mode.
 
+### Phase 3, third batch — the save that said "saved"
+
+`saveConnectionConfig` and `getConnectionConfig` were already counted as live,
+so the audit gate could not see the problem: counting a member says nothing about
+whether it tells the truth. Driving the real settings panel in a browser found
+three defects in one flow, all reproduced before they were fixed.
+
+1. **A successful Save emptied the fields it was given.** The renderer adopts the
+   save response as current state. That response carried `sshHost` and `sshUser`
+   but not `sshPort`, `sshKeyPath`, `sshRemoteHermesPath` or
+   `sshRemoteProfile`, so after a green "Gateway settings saved" toast, three of
+   the five SSH inputs were blank in front of the user. The stored entry had the
+   same four fields missing, so this was not a display bug: the data was gone.
+2. **The write was never checked.** Storage that throws, and storage that
+   resolves `setItem` while keeping nothing (private mode, quota policies), both
+   produced a success-shaped descriptor and a success toast. The write is now read
+   back, and failing that throws — so the renderer's existing error path
+   (`notifyError` → "Could not save gateway settings") is what the user sees.
+3. **`gatewayRunning` was hardcoded `true` in save and derived in read.** The two
+   members disagreed about the same fact. Measured against a real `hermes serve`:
+   `/api/status` answers `"gateway_running": false, "gateway_state": "stopped"`.
+   That is the *messaging* gateway, not the HTTP API that answered the request,
+   so "the API replied" is not evidence that it runs. Both members now read that
+   one field.
+
+`getConnectionConfig` also returned `remoteTokenStoredPlain`, which is not a field
+of `DesktopConnectionConfig` (the contract's name is `remoteTokenPlainText`), and
+omitted four fields the contract requires. It returns exactly the contract's fields
+now, asserted by a key-set test.
+
+What this batch does **not** claim: switching gateways is still refused, and the
+web client cannot dial a remote or SSH endpoint at all. Saving persists an
+*endpoint entry* for this origin, not a connection.
+
 ## Measured: what each screen actually degrades into
 
 Column C says a member has no browser equivalent. It says nothing about whether
 the renderer COPES. That was the open question behind the whole port, so it was
-measured twice — once statically, once in a real browser — and the two disagree
-in a way worth recording.
+measured three ways — statically, by navigating every route, and by driving real
+user flows — and they do not agree. The weakest two are the ones that most look
+like coverage.
 
 ### Static: `tools/screen-degradation.mjs`
 
@@ -626,19 +682,65 @@ measuring, not for shipping.)
 | cut members reachable from some root | 56 / 58 | **23 / 58** |
 | routes touching any cut member | 17 / 17 | **12 / 12** |
 
-**The answer to "does the port degrade or break": it degrades, globally, and
-nothing broke.** Navigating all twelve routes produced **zero renderer faults** —
-the only console error was a `404` for `/favicon.ico`. Every route reads 21–23
-cut members, and the stacks put all of them in always-mounted chrome rather than
-route content: titlebar (`setTitleBarTheme`, `setNativeTheme`, `windowControls`),
-theme context, `renderer-loop-pause`, panes (`openSessionWindow`), the
-quick-entry bridge, the pet-overlay gesture, and gateway pool events. That is the
-structural shape of the degradation — it is **chrome-level, not screen-level**, so
-no route is meaningfully more or less degraded than another.
+**What this probe can and cannot say.** Navigating all twelve routes produced zero
+renderer exceptions during that window, and the reads it recorded sit in
+always-mounted chrome rather than route content: titlebar (`setTitleBarTheme`,
+`setNativeTheme`, `windowControls`), theme context, `renderer-loop-pause`, panes
+(`openSessionWindow`), the quick-entry bridge, the pet-overlay gesture, and
+gateway pool events. That is a real shape — the degradation is **chrome-level, not
+screen-level**.
 
-**35 of the 58 cuts cost nothing at runtime.** They are read by code the import
-graph reaches but no live screen executes. That gap is the argument for not
-treating "cut" as "broken", and equally for not treating "reachable" as "used".
+It is **not** a pass. The probe clicked no button, so it never entered Settings,
+the composer menu, the attachment flow or the terminal; it did not wait for every
+data request; and it did not check that a route painted its intended content. The
+console `404`s it recorded were not captured with URLs and are therefore not
+attributed to anything. The 35 cuts it never saw are **unobserved, not proven
+unreachable** — and the workflow checks below opened three real defects on screens
+this probe reported as clean.
+
+### Real workflows — beyond opening routes
+
+`node spike/workflows.mjs` drives the flows a person actually uses against the
+preview and the live gateway, and exits nonzero when a scenario fails or an
+unhandled renderer exception appears anywhere. Results land in
+`spike/artifacts/workflows/results.json`. Only the OS file dialog is simulated,
+with a real browser `File`; the bridge, the gateway calls and the xterm are real.
+
+Confirmed defects, each reproduced before it was repaired:
+
+- **Open logs** threw `TypeError` — `?.` guards the receiver, not the member. The
+  control (and the keychain toggle) now renders only when the capability exists,
+  and the root error fallback guards the same call.
+- **Save and reconnect** wrote localStorage and announced a reconnect that never
+  happened. It now rejects with an attributed `BridgeError` before writing.
+- **Files…** returned a browser handle's basename as if it were a server path. It
+  uploads through `/api/files/upload-stream` into a unique directory under the
+  managed-file root, overwrite disabled, checks the 16 MiB cap before allocating
+  bytes, and refuses browser folders with an explanation.
+- **Save for next restart** emptied the SSH port, identity file and remote Hermes
+  path and reported success, because the response the form adopts did not carry
+  those fields. The full descriptor is persisted and echoed back now, the write is
+  verified (a dropped or blocked write throws instead of toasting), and
+  `gatewayRunning` is read from `/api/status` instead of asserted. A saved entry
+  survives a reload; the mode card still opens on Local, because this client never
+  dialed the other endpoint.
+
+Measured flows that pass: appearance preference change → reload → verify → restore;
+URL context add/remove; file picker → upload → exact-byte readback; unsupported
+folder explained; a live xterm with observed keystrokes, echo, resize and close;
+and a connection-entry save → reload → read-back roundtrip through the real
+settings panel.
+
+Final checks on the rebuilt bundle: 8 workflow scenarios, 100 bridge tests plus
+package typecheck, 66 relevant renderer tests, full Desktop typecheck, build and
+contract audit all passed; both streaming gates (1280 and 390×844) exited 0. The
+static advisory `--fail-on-breaks` still exits 1 and is not reported as a pass.
+
+Not claimed: a full file-context model turn, image/clipboard attachment,
+drag-and-drop upload, browser-folder import, a real gateway switch, auth on a
+public deployment, or action coverage on all twelve routes. Removing a composer
+chip is not server-side garbage collection, and the upload staging directory is
+retained until the host removes it.
 
 ## Keeping this document true
 
@@ -647,6 +749,7 @@ npm run check:contract                  # wired into `npm run check`; exit 1 on 
 node tools/audit-contract.mjs --write   # verify, then regenerate appendix + bridge manifest
 node tools/screen-degradation.mjs       # static: cut-member reach per route + non-route root
 node spike/degradation-probe.mjs        # runtime: what each route really reads (needs the preview on :5176)
+node spike/workflows.mjs                # real user flows: settings, context, files, terminal
 ```
 
 `--write` regenerates **two** files: this document's appendix and
@@ -730,7 +833,7 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `connections` <br>_(10 members)_ | 22 | 19 | NO SERVER HOME. See the connections section of the matrix: the registry is Electron userData (connections.json), unreadable by any browser and served by no route. /api/profiles and /api/chat/workspaces cover neighbours, not the registry. |
 | `getGatewayWsUrlFor?` <br>_(2 members)_ | 21 | 7 | Registry-scoped mint. Boot-critical; the renderer branches on its presence. |
 | `cloud` <br>_(5 members)_ | 19 | 6 | Portal login round-trip; discovery is a REST call. |
-| `applyConnectionConfig` | 14 | 6 | Re-dial against the new descriptor. |
+| `applyConnectionConfig` | 14 | 6 | Explicit BridgeError refusal: no gateway re-dial is implemented; open the target gateway URL. |
 | `probeConnectionConfig` | 14 | 6 | Server-side reachability probe. |
 | `saveGatewayFile?` <br>_(8 members)_ | 13 | 6 | GET /api/files/download — the HOST writes; the browser needs no path picker. |
 | `readDir` | 12 | 3 | GET /api/fs/list — measured 200 with real entries. |
@@ -739,7 +842,7 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `updates` <br>_(8 members)_ | 11 | 4 | GET /api/hermes/update/check — measured 200. Branch/packaging members are Desktop-only and get no UI. |
 | `getAgentRoster?` | 10 | 7 | Union roster over registered connections → /api/profiles. |
 | `oauthLoginConnectionConfig` <br>_(2 members)_ | 10 | 6 | URL round-trip; the callback lands same-origin. |
-| `getConnectionConfig` | 7 | 5 | The descriptor is built client-side from the endpoint URL the user typed. |
+| `getConnectionConfig` | 7 | 5 | The ACTIVE connection (always the gateway that served this page) plus the stored endpoint entry read back from localStorage. |
 | `oauthLogoutConnectionConfig` | 7 | 5 | GET /api/providers/oauth |
 | `sanitizeWorkspaceCwd` | 7 | 4 | Server-side sanitiser already exists. |
 | `settings` <br>_(3 members)_ | 7 | 4 | /api/fs/default-cwd (get/set). |
@@ -747,7 +850,7 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `zoom?` <br>_(4 members)_ | 6 | 4 | Client-side; the browser owns zoom. |
 | `gitRoot?` | 6 | 3 | GET /api/fs/git-root — measured 200 with the repo root. |
 | `getProfileRoutes` | 4 | 2 | Credential-free routes → /api/profiles/active. |
-| `saveConnectionConfig` | 4 | 3 | Client-side persistence of the endpoint entry. |
+| `saveConnectionConfig` | 4 | 3 | Verified localStorage write of the full endpoint entry; rejects rather than reporting a save the browser did not keep. |
 | `dataUrlReadMax?` <br>_(2 members)_ | 4 | 2 | Server cap + a client pref. |
 | `normalizePreviewTarget` | 4 | 3 | Pure URL logic — runs in the browser as-is. |
 | `stopPreviewFileWatch` | 4 | 2 | Client-side handle teardown. |
@@ -796,10 +899,10 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 |---|---:|---:|---|
 | `openExternal` | 45 | 31 | anchor / window.open behind the click gate (see the guest-content rule). |
 | `openPreviewInBrowser?` | 10 | 3 | window.open with noopener behind a user click. |
-| `saveImageBuffer` | 9 | 5 | anchor + download. A real download, no silent path. |
+| `saveImageBuffer` | 9 | 5 | POST /api/files/upload-stream into .hermes-web-attachments (same staging as selectPaths). |
 | `writeClipboard` | 8 | 7 | navigator.clipboard.write — needs transient activation. |
+| `selectPaths` | 7 | 5 | showOpenFilePicker → GET /api/files + POST /api/files/upload-stream; returns gateway paths. Browser folders unsupported. |
 | `notify` | 6 | 4 | Notification API — denied by default on Android; push is the only durable answer. |
-| `selectPaths` | 6 | 4 | showOpenFilePicker (Chromium) / <input type=file> elsewhere. |
 | `screenshot?` | 5 | 5 | getDisplayMedia — the user must pick a surface; no silent capture. |
 | `selectSavePath?` <br>_(3 members)_ | 4 | 3 | showSaveFilePicker (Chromium) / anchor download elsewhere. |
 | `saveImageFromUrl` | 4 | 2 | anchor + download. /api/media/proxy measured 403 for a non-allowlisted host, so the allowlist is part of the design. |
@@ -807,14 +910,14 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `onFoundInPage` | 3 | 2 | Custom Highlight API counters (Chromium). |
 | `readClipboard` | 2 | 2 | navigator.clipboard.read — needs transient activation. |
 | `contextMenuCopyImage?` | 2 | 2 | Canvas → data URL → clipboard. |
-| `savePastedText` | 2 | 2 | anchor + download. |
+| `savePastedText` | 2 | 2 | POST /api/files/upload-stream into .hermes-web-attachments (pasted_content name shape). |
 | `setActiveWork?` | 2 | 2 | Web App Badges (Chromium-only) / document.title fallback. |
 | `setKeepAwake?` | 2 | 2 | Screen Wake Lock — active tab only, released when backgrounded. |
 | `onDeepLink?` <br>_(1 members)_ | 2 | 2 | URL query/hash — a bookmarkable link, not an OS protocol handler. |
 | `onPowerResume?` | 2 | 2 | visibilitychange — an approximation, not a real power event. |
 | `requestMicrophoneAccess` | 1 | 1 | getUserMedia — needs HTTPS and a permission prompt. |
 | `contextMenuEdit?` | 1 | 1 | Clipboard API against the focused element. |
-| `saveClipboardImage` | 1 | 1 | navigator.clipboard.read image + download. |
+| `saveClipboardImage` | 1 | 1 | navigator.clipboard.read image → POST /api/files/upload-stream. |
 | `fetchLinkTitle` | 1 | 1 | fetch + oEmbed — CORS-bound; degrades to the bare URL. |
 | `resolveFavicon?` | 1 | 1 | GET /api/media/proxy behind an allowlist — measured 403 off-allowlist, not an open proxy. |
 | `onPreviewNav?` | 1 | 1 | iframe + postMessage — a cross-origin frame cannot be driven. |
@@ -832,11 +935,11 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 |---|---:|---:|---|
 | `hud?` <br>_(17 members)_ | 21 | 12 | **C2** — Always-on-top overlay windows |
 | `petOverlay` <br>_(9 members)_ | 18 | 2 | **C2** — Always-on-top overlay windows |
+| `revealLogs` | 10 | 8 | **C8** — The host OS file manager |
 | `quickEntry` <br>_(10 members)_ | 8 | 3 | **C2** — Always-on-top overlay windows |
-| `revealLogs` | 7 | 7 | **C8** — The host OS file manager |
+| `windowControls` <br>_(4 members)_ | 7 | 4 | **C1** — Window chrome and multi-window IPC |
 | `continueBootstrapLocal` | 7 | 2 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `windowRelay?` <br>_(2 members)_ | 6 | 4 | **C1** — Window chrome and multi-window IPC |
-| `windowControls` <br>_(4 members)_ | 6 | 3 | **C1** — Window chrome and multi-window IPC |
 | `revalidateConnection` | 5 | 2 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `touchBackend` | 4 | 2 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `wakeIndicator?` <br>_(3 members)_ | 4 | 3 | **C2** — Always-on-top overlay windows |
@@ -855,6 +958,7 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `openSessionInTerminal` <br>_(2 members)_ | 2 | 1 | **C1** — Window chrome and multi-window IPC |
 | `openBrowserWindow` | 2 | 1 | **C1** — Window chrome and multi-window IPC |
 | `chatOnboarding?` <br>_(2 members)_ | 2 | 1 | **C2** — Always-on-top overlay windows |
+| `setSecretStorageEncryption` | 2 | 1 | **C7** — Host resources the browser cannot reach |
 | `sshConfigHosts` | 2 | 2 | **C7** — Host resources the browser cannot reach |
 | `sshResolveHost` | 2 | 1 | **C7** — Host resources the browser cannot reach |
 | `setTranslucency?` | 2 | 2 | **C3** — Native window theming and glass |
@@ -865,7 +969,7 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `repairBootstrap` | 2 | 1 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `onBrowserPopoutClosed` | 1 | 1 | **C1** — Window chrome and multi-window IPC |
 | `claimAmbientCue` | 1 | 1 | **C1** — Window chrome and multi-window IPC |
-| `setSecretStorageEncryption` | 1 | 1 | **C7** — Host resources the browser cannot reach |
+| `getSecretStorageEncryption` | 1 | 1 | **C7** — Host resources the browser cannot reach |
 | `readWindowBelow?` <br>_(4 members)_ | 1 | 1 | **C7** — Host resources the browser cannot reach |
 | `contextMenuSpellcheck?` | 1 | 1 | **C5** — Preview `<webview>` internals |
 | `contextMenuGuestAddWord?` | 1 | 1 | **C5** — Preview `<webview>` internals |
@@ -884,7 +988,6 @@ Every declared member, exactly one column. `Uses` and `Files` are measured over
 | `relaunchApp?` | 1 | 1 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `getRemoteDisplayReason?` | 1 | 1 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `onOpenFindBarRequested` | 1 | 1 | **C4** — DevTools / F12 and Electron input channels |
-| `getSecretStorageEncryption` | 0 | 0 | **C7** — Host resources the browser cannot reach |
 | `agentPluginsRoot?` | 0 | 0 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `getSyncStatus` | 0 | 0 | **C6** — Host process lifecycle, bootstrap and Desktop packaging |
 | `stopFindInPage` | 0 | 0 | **C4** — DevTools / F12 and Electron input channels |

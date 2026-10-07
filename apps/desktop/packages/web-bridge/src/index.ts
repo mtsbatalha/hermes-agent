@@ -199,6 +199,14 @@ function tokenPreview(token: string): string {
   return token.length <= 8 ? '••••' : `${token.slice(0, 4)}…${token.slice(-2)}`
 }
 
+/**
+ * The persisted endpoint entry. This is the FULL descriptor the contract
+ * declares, not the subset the first version stored: dropping `sshPort`,
+ * `sshKeyPath`, `sshRemoteHermesPath` and `sshRemoteProfile` meant a successful
+ * Save wiped those four fields out of the settings form (the renderer adopts the
+ * save response) and lost them on disk, while the user was told it had saved.
+ * MEASURED in the live web client before this fix.
+ */
 type StoredConnection = {
   mode: string
   profile: string | null
@@ -208,11 +216,100 @@ type StoredConnection = {
   cloudOrg: string
   sshHost: string
   sshUser: string
+  sshPort: number | null
+  sshKeyPath: string
+  sshRemoteHermesPath: string
+  sshRemoteProfile: string
+}
+
+/** "Nothing saved" — what a first visit, or an unreadable store, reports. */
+const NO_CONNECTION: StoredConnection = {
+  mode: 'local',
+  profile: null,
+  remoteAuthMode: 'token',
+  remoteUrl: '',
+  remoteToken: null,
+  cloudOrg: '',
+  sshHost: '',
+  sshUser: '',
+  sshPort: null,
+  sshKeyPath: '',
+  sshRemoteHermesPath: '',
+  sshRemoteProfile: ''
 }
 
 /**
- * Persist the connection descriptor in `localStorage`, and return the shape the
- * contract declares.
+ * Coerce anything into a stored entry, so neither a hostile payload nor a
+ * hand-edited / truncated `localStorage` value can put a wrong type into the
+ * descriptor the renderer adopts.
+ */
+function toStoredConnection(value: unknown): StoredConnection | null {
+  if (!value || typeof value !== 'object') return null
+  const input = value as Record<string, unknown>
+  const text = (key: string): string => (typeof input[key] === 'string' ? (input[key] as string) : '')
+  const port = typeof input.sshPort === 'number' ? input.sshPort : Number(input.sshPort)
+  return {
+    mode: typeof input.mode === 'string' && input.mode ? input.mode : 'local',
+    profile: typeof input.profile === 'string' && input.profile ? input.profile : null,
+    remoteAuthMode: input.remoteAuthMode === 'oauth' ? 'oauth' : 'token',
+    remoteUrl: text('remoteUrl'),
+    remoteToken: typeof input.remoteToken === 'string' && input.remoteToken ? input.remoteToken : null,
+    cloudOrg: text('cloudOrg'),
+    sshHost: text('sshHost'),
+    sshUser: text('sshUser'),
+    sshPort: Number.isInteger(port) && port > 0 && port <= 65535 ? port : null,
+    sshKeyPath: text('sshKeyPath'),
+    sshRemoteHermesPath: text('sshRemoteHermesPath'),
+    sshRemoteProfile: text('sshRemoteProfile')
+  }
+}
+
+/**
+ * The entry a later page load will see, or `null` when storage cannot answer.
+ *
+ * `null` covers three states that must not be confused: no entry, storage
+ * blocked (private mode / disabled), and an entry that will not parse. Callers
+ * decide whether each is fatal — the save path treats all three as a failure to
+ * persist; a read treats them as "nothing saved".
+ */
+function readStoredConnection(): StoredConnection | null {
+  let raw: string | null = null
+  try {
+    raw = globalThis.localStorage?.getItem(CONNECTION_KEY) ?? null
+  } catch {
+    return null
+  }
+  if (!raw) return null
+  try {
+    return toStoredConnection(JSON.parse(raw))
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Is the gateway's own messaging gateway running?
+ *
+ * MEASURED against a real `hermes serve`: `/api/status` answers
+ * `"gateway_running": false, "gateway_state": "stopped"`. So this is NOT the
+ * same fact as "the HTTP API answered" — and a member that hardcoded `true`
+ * reported a stopped messaging gateway as running, while the sibling member
+ * reported the same stopped gateway as stopped. Both now read this one field.
+ */
+async function messagingGatewayRunning(member: string): Promise<boolean> {
+  try {
+    const status = await api<{ gateway_running?: boolean }>('/api/status', { timeoutMs: 5000 }, member)
+    return status?.gateway_running === true
+  } catch {
+    // A gateway that cannot answer is not a running gateway. Saying otherwise
+    // would report liveness from the absence of evidence.
+  }
+
+  return false
+}
+
+/**
+ * The contract descriptor for a stored entry.
  *
  * The security posture is REPORTED, not hidden: `secureTokenStorage` is false
  * because there is no keychain here, and `remoteTokenPlainText` is true exactly
@@ -220,44 +317,68 @@ type StoredConnection = {
  * user can read both; a bridge that reported `secureTokenStorage: true` would be
  * asserting protection it does not have.
  */
-async function storeConnectionConfig(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const input = payload ?? {}
-  const remoteToken = typeof input.remoteToken === 'string' && input.remoteToken ? input.remoteToken : null
-  const entry: StoredConnection = {
-    mode: typeof input.mode === 'string' ? input.mode : 'local',
-    profile: typeof input.profile === 'string' && input.profile ? input.profile : null,
-    remoteAuthMode: input.remoteAuthMode === 'oauth' ? 'oauth' : 'token',
-    remoteUrl: typeof input.remoteUrl === 'string' ? input.remoteUrl : '',
-    remoteToken,
-    cloudOrg: typeof input.cloudOrg === 'string' ? input.cloudOrg : '',
-    sshHost: typeof input.sshHost === 'string' ? input.sshHost : '',
-    sshUser: typeof input.sshUser === 'string' ? input.sshUser : ''
-  }
-
-  try {
-    globalThis.localStorage?.setItem(CONNECTION_KEY, JSON.stringify(entry))
-  } catch {
-    // Storage unavailable (private mode / quota): the descriptor below is still
-    // a truthful answer for THIS call. It simply will not survive a reload, and
-    // saying otherwise would be a lie about persistence.
-  }
-
+async function describeConnection(entry: StoredConnection, member: string): Promise<Record<string, unknown>> {
   return {
     envOverride: false,
     mode: entry.mode,
     profile: entry.profile,
     remoteAuthMode: entry.remoteAuthMode,
     remoteOauthConnected: false,
-    remoteTokenPreview: remoteToken ? tokenPreview(remoteToken) : null,
-    remoteTokenSet: remoteToken !== null,
+    remoteTokenPreview: entry.remoteToken ? tokenPreview(entry.remoteToken) : null,
+    remoteTokenSet: entry.remoteToken !== null,
     secureTokenStorage: false,
-    remoteTokenPlainText: remoteToken !== null,
+    remoteTokenPlainText: entry.remoteToken !== null,
     remoteUrl: entry.remoteUrl,
     cloudOrg: entry.cloudOrg,
     sshHost: entry.sshHost,
     sshUser: entry.sshUser,
-    gatewayRunning: true
+    sshPort: entry.sshPort,
+    sshKeyPath: entry.sshKeyPath,
+    sshRemoteHermesPath: entry.sshRemoteHermesPath,
+    sshRemoteProfile: entry.sshRemoteProfile,
+    gatewayRunning: await messagingGatewayRunning(member)
   }
+}
+
+/**
+ * Persist the connection descriptor in `localStorage`, and return the shape the
+ * contract declares.
+ *
+ * The write is VERIFIED, and a failed write throws. Returning a success-shaped
+ * descriptor for a value that never reached storage is the exact "saved!" lie
+ * this member used to tell: the renderer adopts the response as the current
+ * state and shows a success toast. So the value handed back is read back out of
+ * storage, not the value we hoped to write — whatever a later page load will
+ * see is what the caller adopts.
+ */
+async function storeConnectionConfig(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const entry = toStoredConnection(payload)
+  if (!entry) {
+    throw new BridgeError('saveConnectionConfig', 'Expected a connection descriptor object.')
+  }
+
+  let verified: StoredConnection | null = null
+  try {
+    globalThis.localStorage?.setItem(CONNECTION_KEY, JSON.stringify(entry))
+    verified = readStoredConnection()
+  } catch (error) {
+    throw new BridgeError(
+      'saveConnectionConfig',
+      'This browser refused to store the connection settings (storage is blocked or full).',
+      { cause: error }
+    )
+  }
+
+  if (!verified) {
+    // `setItem` resolved but nothing readable came back: storage is disabled,
+    // the entry is unreadable, or a quota policy dropped the write silently.
+    throw new BridgeError(
+      'saveConnectionConfig',
+      'The browser accepted the write but did not return it on read-back, so the settings were not saved.'
+    )
+  }
+
+  return describeConnection(verified, 'saveConnectionConfig')
 }
 
 const ptySockets = new Map<string, PtySocket>()
@@ -283,6 +404,53 @@ import {
  */
 const SERVER_DATA_URL_MAX_BYTES = DATA_URL_READ_DEFAULT_MAX_MB * 1024 * 1024
 const DATA_URL_PREF_KEY = 'hermes.web.dataUrlReadMaxMb'
+
+/**
+ * Upload bytes to a gateway-managed path and return it.
+ *
+ * MEASURED against the live gateway: `GET /api/files` yields the managed
+ * upload root, `POST /api/files/upload-stream` writes a multipart body under
+ * it and returns the display path. This is the same wire shape `selectPaths`
+ * has always used — factored out so the image/paste members (below) stage
+ * browser-held bytes identically instead of inventing a second staging area.
+ * The caller passes the root it already resolved (selectPaths fetches it once
+ * for the whole batch); `member` names the bridge member on failure, per the
+ * transport's rule.
+ */
+async function uploadBytesToManagedPath(
+  rootPath: string,
+  bytes: ArrayBuffer,
+  filename: string,
+  contentType: string,
+  member: string,
+  profile?: string | null
+): Promise<string> {
+  const name = filename.replace(/[\\/\\\\]/g, '_')
+  const destination = `${rootPath.replace(/[\\/\\\\]$/, '')}/.hermes-web-attachments/${crypto.randomUUID()}/${name}`
+  const result = await api<{ path: string }>(
+    '/api/files/upload-stream',
+    {
+      method: 'POST',
+      profile: profile ?? undefined,
+      upload: { filename: name, contentType, bytes, path: destination, overwrite: false }
+    },
+    member
+  )
+  if (typeof result.path !== 'string' || !result.path) {
+    throw new BridgeError(member, 'The upload did not return a gateway path.')
+  }
+  return result.path
+}
+
+/**
+ * The managed upload root, shared by every staging member. `null` means the
+ * gateway answered without one — callers turn that into their own member-named
+ * error because the copy should name who asked.
+ */
+async function managedUploadRoot(member: string): Promise<string | null> {
+  const root = await api<{ path: string }>('/api/files', {}, member)
+  return typeof root.path === 'string' && root.path ? root.path : null
+}
 
 export type DataUrlReadMax = { defaultMaxMb: number; maxBytes: number; maxMb: number }
 
@@ -435,23 +603,26 @@ export function createWebBridge(): Record<string, unknown> {
     /**
      * The saved-connection descriptor. This member is load-bearing: the renderer
      * branches on `mode`, and a wrong value sends boot down the remote path.
-     * It is derived from the real gateway rather than hardcoded.
+     *
+     * `mode` is the connection this client ACTUALLY holds, which in a browser is
+     * always the gateway that served this page — a stored `remote`/`ssh`/`cloud`
+     * entry is an endpoint the client never dialled, and `applyConnectionConfig`
+     * refuses to dial it. It is deliberately NOT the stored draft's mode:
+     * `refreshProfileRemoteOverrides` badges every profile whose descriptor
+     * says remote, `isLocalDesktopProfile` uses it to pick the startup profile,
+     * and the boot overlay offers a remote sign-in when it reads remote. Echoing
+     * a draft into that field would fabricate all three.
+     *
+     * The draft's FIELDS are echoed, so a saved URL or SSH entry survives a
+     * reload and reappears when the user picks that mode — that read-back is the
+     * whole point of persisting anything here. An entry that cannot be read back
+     * (blocked storage, truncated JSON) reads as "nothing saved" rather than
+     * poisoning the form.
      */
     getConnectionConfig: async () => {
-      const status = await api<{ gateway_running?: boolean }>('/api/status', {}, 'getConnectionConfig')
-      return {
-        envOverride: false,
-        mode: 'local',
-        profile: null,
-        remoteAuthMode: 'token',
-        remoteOauthConnected: false,
-        remoteTokenPreview: null,
-        remoteTokenSet: false,
-        secureTokenStorage: false,
-        remoteTokenStoredPlain: false,
-        remoteTokenPlainText: false,
-        gatewayRunning: Boolean(status?.gateway_running)
-      }
+      const stored = readStoredConnection() ?? NO_CONNECTION
+      const descriptor = await describeConnection(stored, 'getConnectionConfig')
+      return { ...descriptor, mode: 'local' }
     },
 
     /**
@@ -535,17 +706,23 @@ export function createWebBridge(): Record<string, unknown> {
      * renderer acts on. A supplied `remoteToken` is stored as-is, which is why
      * `remoteTokenPlainText` reports true when one is present.
      *
+     * It saves the ENDPOINT ENTRY, not a connection: `applyConnectionConfig`
+     * refuses to switch, so nothing here can make this client talk to another
+     * host. The write is verified (see `storeConnectionConfig`) and the response
+     * is what storage actually holds, so the fields the renderer adopts — and
+     * shows a success toast for — are the fields a reload will read.
+     *
      * The token is never returned: only a short preview, as Electron does.
      */
     saveConnectionConfig: async (payload: Record<string, unknown>) => storeConnectionConfig(payload),
-    /**
-     * `applyConnectionConfig` saves and then re-reads. There is no separate
-     * "apply" on the web client: the bundle is served BY whichever gateway it is
-     * attached to, so a browser cannot re-point its own origin at a different
-     * host the way Electron re-dials its backend. Connecting to a different
-     * gateway means opening that gateway's own URL.
-     */
-    applyConnectionConfig: async (payload: Record<string, unknown>) => storeConnectionConfig(payload),
+    // Saving a descriptor is not a reconnect. Reject before writing so the
+    // renderer cannot announce a successful switch while still using this host.
+    applyConnectionConfig: async () => {
+      throw new BridgeError(
+        'applyConnectionConfig',
+        'Switching gateways is not supported in this web client yet. Open the target gateway URL instead.'
+      )
+    },
 
     profile: {
       // The boot path reads this to name its active profile. Returning `null` —
@@ -688,14 +865,50 @@ export function createWebBridge(): Record<string, unknown> {
     onPreviewFileChanged: (callback: (payload: { path: string }) => void) => previewFileBus.subscribe(callback),
     onBootstrapEvent: (callback: (payload: unknown) => void) => bootstrapBus.subscribe(callback),
     onExternalOpenFailed: (callback: (payload: { url: string }) => void) => externalOpenFailedBus.subscribe(callback),
-    selectPaths: async (options?: { multiple?: boolean }) => {
-      if (!('showOpenFilePicker' in window)) return []
-      const picked = await (
-        window as unknown as {
-          showOpenFilePicker: (o: unknown) => Promise<Array<{ name: string }>>
+    selectPaths: async (options?: { multiple?: boolean; directories?: boolean; profile?: string }) => {
+      if (options?.directories) {
+        throw new BridgeError(
+          'selectPaths',
+          'Browser folders have no gateway path. Choose a folder on the gateway instead.'
+        )
+      }
+      if (!('showOpenFilePicker' in window)) {
+        throw new BridgeError('selectPaths', 'This browser does not support the file picker yet.')
+      }
+      let picked: Array<{ getFile: () => Promise<File> }>
+      try {
+        picked = await (
+          window as unknown as { showOpenFilePicker: (o: unknown) => Promise<Array<{ getFile: () => Promise<File> }>> }
+        ).showOpenFilePicker({ multiple: options?.multiple ?? false })
+      } catch (error) {
+        if (error && typeof error === 'object' && 'name' in error && error.name === 'AbortError') return []
+        throw error
+      }
+      const root = await managedUploadRoot('selectPaths')
+      if (!root) {
+        throw new BridgeError('selectPaths', 'The gateway did not return a managed upload root.')
+      }
+      const paths: string[] = []
+      for (const handle of picked) {
+        const file = await handle.getFile()
+        if (file.size > SERVER_DATA_URL_MAX_BYTES) {
+          throw new BridgeError(
+            'selectPaths',
+            `File exceeds the ${DATA_URL_READ_DEFAULT_MAX_MB} MiB gateway read limit.`
+          )
         }
-      ).showOpenFilePicker({ multiple: options?.multiple ?? false })
-      return picked.map(handle => handle.name)
+        paths.push(
+          await uploadBytesToManagedPath(
+            root,
+            await file.arrayBuffer(),
+            file.name,
+            file.type || 'application/octet-stream',
+            'selectPaths',
+            options?.profile
+          )
+        )
+      }
+      return paths
     },
     selectSavePath: async () => {
       if (!('showSaveFilePicker' in window)) return null
@@ -703,6 +916,76 @@ export function createWebBridge(): Record<string, unknown> {
         window as unknown as { showSaveFilePicker: () => Promise<{ name: string }> }
       ).showSaveFilePicker()
       return handle.name
+    },
+
+    /**
+     * ── browser-held image/paste bytes → gateway paths ──────────────────
+     *
+     * Electron's `saveImageBuffer` / `savePastedText` / `saveClipboardImage`
+     * write into Desktop's durable caches and hand back a host path. The web
+     * bridge used to cut all three ("anchor + download"), which silently broke
+     * every composer flow that calls them: `attachImageBlob` returned without
+     * a chip (the optional-chain swallowed the missing member), the large-
+     * paste conversion no-op'd, and Paste-image menu item dead-ended. MEASURED
+     * in the live web client before wiring these.
+     *
+     * The honest equivalent is NOT a download: the composer needs a GATEWAY
+     * path the model can read, and the gateway already stages browser uploads
+     * under `.hermes-web-attachments/` (see `selectPaths`). These members
+     * stage into the same area through the same endpoint. The bytes stay on
+     * the gateway instead of the user's disk — which is where Desktop's cache
+     * copies live anyway relative to the model.
+     */
+    saveImageBuffer: async (data: ArrayBuffer | Uint8Array, ext: string, name?: string) => {
+      const bytes: ArrayBuffer =
+        data instanceof Uint8Array
+          ? data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer
+          : data
+      const filename = name?.replace(/[\\/\\\\]/g, '_') ?? `composer-image-${Date.now().toString(36)}${ext.startsWith('.') ? ext : `.${ext}`}`
+      const root = await managedUploadRoot('saveImageBuffer')
+      if (!root) throw new BridgeError('saveImageBuffer', 'The gateway did not return a managed upload root.')
+      return uploadBytesToManagedPath(root, bytes, filename, 'application/octet-stream', 'saveImageBuffer')
+    },
+    savePastedText: async (text: string) => {
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const hex = Math.random().toString(16).slice(2, 8)
+      // Same name shape Electron's composer-paste cache uses, so the
+      // renderer's `PASTED_CONTENT_FILE_RE` chip label matches.
+      const encoded = new TextEncoder().encode(text)
+      const bytes = encoded.buffer.slice(encoded.byteOffset, encoded.byteOffset + encoded.byteLength) as ArrayBuffer
+      const root = await managedUploadRoot('savePastedText')
+      if (!root) throw new BridgeError('savePastedText', 'The gateway did not return a managed upload root.')
+      return uploadBytesToManagedPath(root, bytes, `pasted_content_${stamp}_${hex}.txt`, 'text/plain', 'savePastedText')
+    },
+    saveClipboardImage: async (): Promise<string | null> => {
+      // A browser can only read the clipboard inside a user gesture with
+      // permission; the menu click provides the gesture. No image → null, the
+      // same "nothing on the clipboard" answer Desktop gives.
+      if (!navigator.clipboard || typeof navigator.clipboard.read !== 'function') return null
+      let items: ClipboardItem[]
+      try {
+        items = await navigator.clipboard.read()
+      } catch {
+        return null
+      }
+      for (const item of items) {
+        const type = item.types.find(t => t.startsWith('image/'))
+        if (!type) continue
+        const blob = await item.getType(type)
+        if (blob.size === 0) continue
+        const ext = type.split('/')[1]?.replace(/[^a-z0-9]/gi, '') || 'png'
+        const bytes = await blob.arrayBuffer()
+        const root = await managedUploadRoot('saveClipboardImage')
+        if (!root) throw new BridgeError('saveClipboardImage', 'The gateway did not return a managed upload root.')
+        return uploadBytesToManagedPath(
+          root,
+          bytes,
+          `clipboard-image-${Date.now().toString(36)}.${ext}`,
+          type,
+          'saveClipboardImage'
+        )
+      }
+      return null
     },
 
     // ── diagnostics the renderer already routes its own traces through ─────

@@ -80,6 +80,20 @@ describe('api() profile scoping', () => {
       expect(calls[0].url.split('?')).toHaveLength(2)
     })
   })
+
+  // MEASURED on the wire: the timeline index already puts `profile` in its
+  // query (mirroring history-window.ts and api/sessions.ts), and this funnel
+  // appended its scope again, producing `...&profile=default&profile=default`.
+  // FastAPI takes the first value so nothing broke, but a future handler that
+  // reads the LAST occurrence would flip the meaning silently. The path's own
+  // `profile` is the explicit intent; the scope must not override it.
+  it('does not duplicate a profile the path already carries', () => {
+    const calls = stubFetch()
+    return api('/api/sessions/s1/timeline?limit=500&profile=work', { profile: 'work' }, 'timeline').then(() => {
+      expect(calls[0].url).toBe('/api/sessions/s1/timeline?limit=500&profile=work')
+      expect(calls[0].url.split('profile=')).toHaveLength(2)
+    })
+  })
 })
 
 describe('api() request shape', () => {

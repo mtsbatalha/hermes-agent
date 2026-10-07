@@ -52,6 +52,16 @@ function stubStorage() {
   return store
 }
 
+/**
+ * The descriptor members read `/api/status` for `gatewayRunning`, so a save
+ * test that forgets this would make a real request to `location.origin`.
+ * `gateway_running: false` is what a real `hermes serve` answers for a stopped
+ * messaging gateway — MEASURED — so this is not a convenient default.
+ */
+function stubGatewayStatus(gatewayRunning = false) {
+  stubFetchSequence([[200, { version: '0.21.5', gateway_running: gatewayRunning }]])
+}
+
 beforeEach(() => {
   vi.stubGlobal('location', { origin: 'http://127.0.0.1:5176', protocol: 'http:' })
 })
@@ -252,6 +262,7 @@ describe('testConnectionConfig', () => {
 describe('saveConnectionConfig / applyConnectionConfig', () => {
   it('round-trips the descriptor into storage', async () => {
     const store = stubStorage()
+    stubGatewayStatus()
     const result = (await bridge().saveConnectionConfig({ mode: 'remote', remoteUrl: 'http://g.example' })) as {
       mode: string
       remoteUrl: string
@@ -261,8 +272,103 @@ describe('saveConnectionConfig / applyConnectionConfig', () => {
     expect(store.size).toBe(1)
   })
 
+  it('keeps every SSH field the settings form adopts', async () => {
+    // REGRESSION. Measured in the live web client: the save response carried
+    // `sshHost`/`sshUser` but not `sshPort`, `sshKeyPath`,
+    // `sshRemoteHermesPath` or `sshRemoteProfile`. The renderer adopts the save
+    // response as current state, so a successful Save visibly emptied those four
+    // inputs, and the stored entry never held them either.
+    const store = stubStorage()
+    stubGatewayStatus()
+    const saved = (await bridge().saveConnectionConfig({
+      mode: 'ssh',
+      sshHost: 'box.invalid',
+      sshUser: 'deploy',
+      sshPort: 2222,
+      sshKeyPath: '/home/deploy/.ssh/id_ed25519',
+      sshRemoteHermesPath: '/opt/hermes/bin/hermes',
+      sshRemoteProfile: 'production'
+    })) as Record<string, unknown>
+    expect(saved).toMatchObject({
+      sshHost: 'box.invalid',
+      sshUser: 'deploy',
+      sshPort: 2222,
+      sshKeyPath: '/home/deploy/.ssh/id_ed25519',
+      sshRemoteHermesPath: '/opt/hermes/bin/hermes',
+      sshRemoteProfile: 'production'
+    })
+    expect(JSON.parse([...store.values()][0])).toMatchObject({
+      sshPort: 2222,
+      sshKeyPath: '/home/deploy/.ssh/id_ed25519',
+      sshRemoteHermesPath: '/opt/hermes/bin/hermes'
+    })
+  })
+
+  it('reports gatewayRunning from /api/status instead of asserting true', async () => {
+    // REGRESSION. The old member hardcoded `true`. A real `hermes serve` answers
+    // `"gateway_running": false, "gateway_state": "stopped"` — measured — so the
+    // save response was claiming a stopped messaging gateway was running.
+    stubStorage()
+    stubGatewayStatus(false)
+    const stopped = (await bridge().saveConnectionConfig({ mode: 'local' })) as { gatewayRunning: boolean }
+    expect(stopped.gatewayRunning).toBe(false)
+
+    stubStorage()
+    stubGatewayStatus(true)
+    const running = (await bridge().saveConnectionConfig({ mode: 'local' })) as { gatewayRunning: boolean }
+    expect(running.gatewayRunning).toBe(true)
+  })
+
+  it('rejects when storage refuses the write, instead of reporting a save', async () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => {
+        throw new Error('denied')
+      },
+      setItem: () => {
+        throw new Error('denied')
+      }
+    })
+    stubGatewayStatus()
+    // The renderer turns this into the "Could not save gateway settings" toast.
+    // A success-shaped answer here is the "saved!" lie: nothing was stored, and
+    // the settings form would adopt a descriptor that a reload cannot see.
+    await expect(bridge().saveConnectionConfig({ mode: 'local' })).rejects.toThrow(/refused to store/)
+  })
+
+  it('rejects when the browser accepts the write but drops it silently', async () => {
+    // Private-mode and quota policies can resolve `setItem` and keep nothing.
+    // Read-back is what distinguishes a saved setting from a dropped one.
+    const store = new Map<string, string>()
+    vi.stubGlobal('localStorage', {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => void store.delete('x')
+    })
+    stubGatewayStatus()
+    await expect(bridge().saveConnectionConfig({ mode: 'local' })).rejects.toThrow(/read-back/)
+  })
+
+  it('returns what storage actually holds, not what was sent', async () => {
+    // A storage layer that normalizes values must not be second-guessed: the
+    // renderer adopts this response, so it has to be the persisted truth.
+    const store = new Map<string, string>()
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        store.set(k, JSON.stringify({ ...JSON.parse(v), remoteUrl: 'http://normalized.example' }))
+      },
+      removeItem: (k: string) => void store.delete(k)
+    })
+    stubGatewayStatus()
+    const result = (await bridge().saveConnectionConfig({ mode: 'remote', remoteUrl: 'http://sent.example' })) as {
+      remoteUrl: string
+    }
+    expect(result.remoteUrl).toBe('http://normalized.example')
+  })
+
   it('reports secureTokenStorage FALSE — there is no keychain here', async () => {
     stubStorage()
+    stubGatewayStatus()
     const result = (await bridge().saveConnectionConfig({ mode: 'remote' })) as {
       secureTokenStorage: boolean
     }
@@ -273,6 +379,7 @@ describe('saveConnectionConfig / applyConnectionConfig', () => {
 
   it('reports remoteTokenPlainText exactly when a token is stored', async () => {
     stubStorage()
+    stubGatewayStatus()
     const withToken = (await bridge().saveConnectionConfig({
       mode: 'remote',
       remoteToken: 'supersecrettoken'
@@ -290,22 +397,102 @@ describe('saveConnectionConfig / applyConnectionConfig', () => {
     expect(without.remoteTokenPreview).toBeNull()
   })
 
-  it('answers even when storage is unavailable', async () => {
-    vi.stubGlobal('localStorage', {
-      getItem: () => {
-        throw new Error('denied')
-      },
-      setItem: () => {
-        throw new Error('denied')
-      }
+  it('refuses apply rather than reporting a reconnect that never happened', async () => {
+    const store = stubStorage()
+    await expect(bridge().applyConnectionConfig({ mode: 'remote', remoteUrl: 'http://g.example' })).rejects.toThrow(
+      /Open the target gateway URL/
+    )
+    expect(store.size).toBe(0)
+  })
+})
+
+describe('getConnectionConfig', () => {
+  it('reads a saved entry back after a reload', async () => {
+    const store = stubStorage()
+    stubGatewayStatus(true)
+    await bridge().saveConnectionConfig({
+      mode: 'remote',
+      remoteUrl: 'http://g.example',
+      remoteToken: 'supersecrettoken',
+      sshPort: 2222,
+      sshKeyPath: '/home/deploy/.ssh/id_ed25519'
     })
-    const result = (await bridge().saveConnectionConfig({ mode: 'local' })) as { mode: string }
-    expect(result.mode).toBe('local')
+
+    // A reload: same origin, same storage, a bridge built from scratch. This is
+    // the roundtrip that makes "Saved" mean something — before the fix this read
+    // a hardcoded descriptor and dropped every stored field.
+    stubFetchSequence([[200, { gateway_running: true }]])
+    const config = (await bridge().getConnectionConfig()) as Record<string, unknown>
+    expect(config).toMatchObject({
+      remoteUrl: 'http://g.example',
+      remoteTokenSet: true,
+      remoteTokenPlainText: true,
+      secureTokenStorage: false,
+      sshPort: 2222,
+      sshKeyPath: '/home/deploy/.ssh/id_ed25519',
+      gatewayRunning: true
+    })
+    expect(config.remoteTokenPreview).not.toContain('supersecrettoken')
+    expect(store.size).toBe(1)
   })
 
-  it('applyConnectionConfig behaves as save — it cannot re-point the origin', async () => {
+  it('reports the connection it actually holds, not the stored draft mode', async () => {
+    // `mode` feeds boot routing, profile remote-override badges and the
+    // boot-failure sign-in path. This client is attached to the gateway that
+    // served the page and never dialled an SSH or remote endpoint
+    // (`applyConnectionConfig` refuses), so a stored draft must not claim it.
     stubStorage()
-    const result = (await bridge().applyConnectionConfig({ mode: 'local' })) as { mode: string }
-    expect(result.mode).toBe('local')
+    stubGatewayStatus()
+    await bridge().saveConnectionConfig({ mode: 'ssh', sshHost: 'box.invalid', sshPort: 2222 })
+    stubFetchSequence([[200, { gateway_running: false }]])
+    const config = (await bridge().getConnectionConfig()) as { mode: string; sshHost: string; sshPort: number }
+    expect(config.mode).toBe('local')
+    // …while the endpoint entry itself survives and reappears in the form.
+    expect(config.sshHost).toBe('box.invalid')
+    expect(config.sshPort).toBe(2222)
+  })
+
+  it('returns the contract fields, and no invented ones', async () => {
+    stubStorage()
+    stubGatewayStatus()
+    const config = (await bridge().getConnectionConfig()) as Record<string, unknown>
+    expect(Object.keys(config).sort()).toEqual(
+      [
+        'cloudOrg',
+        'envOverride',
+        'gatewayRunning',
+        'mode',
+        'profile',
+        'remoteAuthMode',
+        'remoteOauthConnected',
+        'remoteTokenPlainText',
+        'remoteTokenPreview',
+        'remoteTokenSet',
+        'remoteUrl',
+        'secureTokenStorage',
+        'sshHost',
+        'sshKeyPath',
+        'sshPort',
+        'sshRemoteHermesPath',
+        'sshRemoteProfile',
+        'sshUser'
+      ].sort()
+    )
+    // `remoteTokenStoredPlain` was never in `DesktopConnectionConfig`; the
+    // contract's field is `remoteTokenPlainText`.
+    expect(config).not.toHaveProperty('remoteTokenStoredPlain')
+  })
+
+  it('treats an unreadable stored entry as nothing saved', async () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => '{ this is not json',
+      setItem: () => undefined,
+      removeItem: () => undefined
+    })
+    stubGatewayStatus()
+    const config = (await bridge().getConnectionConfig()) as { mode: string; remoteUrl: string }
+    // A corrupt entry must not throw into the settings mount, and must not be
+    // echoed into the form as if it had been saved.
+    expect(config).toMatchObject({ mode: 'local', remoteUrl: '' })
   })
 })

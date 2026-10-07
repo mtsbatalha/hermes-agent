@@ -115,10 +115,18 @@ export const BRIDGE_STATUS: Record<string, CapabilityRecord> = {
   },
   getConnectionConfig: {
     kind: 'transport',
-    endpoint: 'The descriptor is built client-side from the endpoint URL the user typed.'
+    endpoint:
+      'The ACTIVE connection (always the gateway that served this page) plus the stored endpoint entry read back from localStorage.'
   },
-  saveConnectionConfig: { kind: 'transport', endpoint: 'Client-side persistence of the endpoint entry.' },
-  applyConnectionConfig: { kind: 'transport', endpoint: 'Re-dial against the new descriptor.' },
+  saveConnectionConfig: {
+    kind: 'transport',
+    endpoint:
+      'Verified localStorage write of the full endpoint entry; rejects rather than reporting a save the browser did not keep.'
+  },
+  applyConnectionConfig: {
+    kind: 'transport',
+    endpoint: 'Explicit BridgeError refusal: no gateway re-dial is implemented; open the target gateway URL.'
+  },
   testConnectionConfig: { kind: 'transport', endpoint: 'Reachability probe against the saved descriptor.' },
   getSecretStorageEncryption: {
     kind: 'cut',
@@ -192,7 +200,11 @@ export const BRIDGE_STATUS: Record<string, CapabilityRecord> = {
     kind: 'cut',
     copy: 'Not wired on the web bridge yet — GET /api/config/raw and /api/dashboard/agent-plugins/{name}. The capability exists; this client does not call it yet.'
   },
-  selectPaths: { kind: 'browser', endpoint: 'showOpenFilePicker (Chromium) / <input type=file> elsewhere.' },
+  selectPaths: {
+    kind: 'browser',
+    endpoint:
+      'showOpenFilePicker → GET /api/files + POST /api/files/upload-stream; returns gateway paths. Browser folders unsupported.'
+  },
   selectSavePath: { kind: 'browser', endpoint: 'showSaveFilePicker (Chromium) / anchor download elsewhere.' },
   writeClipboard: { kind: 'browser', endpoint: 'navigator.clipboard.write — needs transient activation.' },
   readClipboard: { kind: 'browser', endpoint: 'navigator.clipboard.read — needs transient activation.' },
@@ -225,21 +237,18 @@ export const BRIDGE_STATUS: Record<string, CapabilityRecord> = {
     copy: 'Previews become sandboxed iframes. The two with no equivalent at all report an explicit "Not available in the browser client"; the app never returns an empty image or a silent no-op.'
   },
   saveImageBuffer: {
-    kind: 'cut',
-    copy: 'Not wired on the web bridge yet — anchor + download. A real download, no silent path. The capability exists; this client does not call it yet.'
+    kind: 'browser',
+    endpoint: 'POST /api/files/upload-stream into .hermes-web-attachments (same staging as selectPaths).'
   },
   capturePreview: {
     kind: 'cut',
     copy: 'Previews become sandboxed iframes. The two with no equivalent at all report an explicit "Not available in the browser client"; the app never returns an empty image or a silent no-op.'
   },
   savePastedText: {
-    kind: 'cut',
-    copy: 'Not wired on the web bridge yet — anchor + download. The capability exists; this client does not call it yet.'
+    kind: 'browser',
+    endpoint: 'POST /api/files/upload-stream into .hermes-web-attachments (pasted_content name shape).'
   },
-  saveClipboardImage: {
-    kind: 'cut',
-    copy: 'Not wired on the web bridge yet — navigator.clipboard.read image + download. The capability exists; this client does not call it yet.'
-  },
+  saveClipboardImage: { kind: 'browser', endpoint: 'navigator.clipboard.read image → POST /api/files/upload-stream.' },
   getPathForFile: {
     kind: 'cut',
     copy: 'Not wired on the web bridge yet — File / FileReader, Blob URLs — drag-and-drop attach works natively. The capability exists; this client does not call it yet.'

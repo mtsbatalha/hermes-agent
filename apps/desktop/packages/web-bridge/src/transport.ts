@@ -86,7 +86,7 @@ export type ApiRequest = {
   path: string
   method?: string
   body?: unknown
-  upload?: { filename: string; contentType?: string; bytes: ArrayBuffer }
+  upload?: { filename: string; contentType?: string; bytes: ArrayBuffer; path?: string; overwrite?: boolean }
   timeoutMs?: number
   profile?: string | null
   connection?: string | null
@@ -116,6 +116,8 @@ export async function api<T>(path: string, options: ApiOptions = {}, member = 'a
       new Blob([upload.bytes], { type: upload.contentType ?? 'application/octet-stream' }),
       upload.filename
     )
+    if (upload.path !== undefined) form.append('path', upload.path)
+    if (upload.overwrite !== undefined) form.append('overwrite', String(upload.overwrite))
     init.body = form
   } else if (body !== undefined) {
     headers['Content-Type'] = 'application/json'
@@ -126,8 +128,18 @@ export async function api<T>(path: string, options: ApiOptions = {}, member = 'a
   // `null`/`undefined` for the primary profile, and interpolating a placeholder
   // here puts the literal "undefined" in the query — which is exactly the
   // composite-scope bug the spike traced.
+  //
+  // Measured duplicate: paths that already carry `?profile=` (the timeline
+  // index does, matching history-window.ts and api/sessions.ts) came out as
+  // `...&profile=default&profile=default` on the wire. FastAPI tolerates the
+  // repeat, so it is cosmetic today, but the URL is the contract between the
+  // two halves and a future handler that reads the LAST value would silently
+  // change meaning. Appending only when absent keeps both layers' intent.
   const profile = typeof scope === 'string' && scope.length > 0 ? scope : null
-  const url = profile ? `${path}${path.includes('?') ? '&' : '?'}profile=${encodeURIComponent(profile)}` : path
+  const url =
+    profile && !new URLSearchParams(path.split('?')[1] ?? '').has('profile')
+      ? `${path}${path.includes('?') ? '&' : '?'}profile=${encodeURIComponent(profile)}`
+      : path
 
   const response = await fetch(url, init)
   const text = await response.text()
