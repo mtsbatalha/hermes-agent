@@ -1,0 +1,30 @@
+{
+  "wsDebug": {
+    "opens": [
+      {
+        "url": "ws://127.0.0.1:9211/api/ws?token=qoZKWEz63y1Jsr_e0rphTCRtvMpDAoJRizqptvO9R68",
+        "isPty": false,
+        "focus": "DIV [aria-label=Message]",
+        "t": 1791423606832
+      }
+    ],
+    "closeCount": 0,
+    "ptyOpen": false,
+    "notPtyOpens": 1,
+    "focusAtOpen": []
+  },
+  "terminalActorDebug": {
+    "setterCalled": true,
+    "hasTerminal": true,
+    "t": 1791423606210
+  },
+  "ptyProbe": {
+    "receivedBytes": 0,
+    "sent": [],
+    "closed": 0,
+    "deliveredBytes": 0,
+    "output": ""
+  },
+  "gwrecvHead": [],
+  "submitHead": []
+}

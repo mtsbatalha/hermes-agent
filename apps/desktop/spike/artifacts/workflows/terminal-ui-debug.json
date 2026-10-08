@@ -1,0 +1,50 @@
+{
+  "url": "http://127.0.0.1:5176/spike.html#/",
+  "title": "Hermes — web spike",
+  "canvasCount": 1,
+  "canvasVisible": true,
+  "bodyTextHead": "SESSIONS\nBOTS\nNew session\nCtrl\nN\nCapabilities\nMessaging\nArtifacts\nScheduled jobs\nPINNED\nShift-click a chat to pin\nSESSIONS\nNEW SESSION\n\nHERMES AGENT\n\nAsk a question, paste an error, or point me at a repo. I can read code, run tools, and help you ship.\n\nScroll to bottom\n⠋\n⠙\n⠹\n⠸\n⠼\n⠴\n⠦\n⠧\n⠇\n⠏\nWaking up …\nDeepSeek V4 · Flash\nHigh\nTERMINAL\nGateway\nready\nSmart\nCONNECTING",
+  "bridgeMembers": 53,
+  "ptyProbe": null,
+  "ws": [
+    {
+      "url": "ws://127.0.0.1:9119/api/ws?token=spike-token-123",
+      "events": [
+        "open"
+      ],
+      "frames": [
+        "→ {\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"model.options\",\"params\":{\"explicit_only\":true,\"profile\":\"default\"}}",
+        "→ {\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"setup.status\",\"params\":{}}",
+        "→ {\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"setup.runtime_check\",\"params\":{}}",
+        "→ {\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"free_tier.status\",\"params\":{}}",
+        "→ {\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"setup.status\",\"params\":{}}",
+        "→ {\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"setup.runtime_check\",\"params\":{}}",
+        "→ {\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"pet.info\",\"params\":{\"profile\":\"default\"}}",
+        "→ {\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"wake.status\",\"params\":{\"client_capture\":true,\"surface\":\"gui\"}}",
+        "→ {\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"session.active_list\",\"params\":{}}",
+        "→ {\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"shared_metrics.status\",\"params\":{}}",
+        "→ {\"jsonrpc\":\"2.0\",\"id\":11,\"method\":\"commands.catalog\",\"params\":{\"profile\":\"default\"}}",
+        "← {\"jsonrpc\": \"2.0\", \"method\": \"event\", \"params\": {\"type\": \"gateway.ready\", \"payload\": {\"skin\": {\"name\": \"default\", \"colors\": {\"banner_border\": \"#CD7F32\", \"banner_title\": \"#FFD700\", \"banner_accent\": \"#FFBF00\", \"banner_dim\": \"#B8860B\", \"banner_text\": \"#FFF8DC\", \"ui_accent\": \"#FFBF00\", \"ui_label\": \"#DAA520\", \"ui_ok\": \"#4caf50\", \"ui_error\": \"#ef5350\", \"ui_warn\": \"#ffa726\", \"prompt\": \"#FFF8DC\", \"input_r",
+        "→ {\"jsonrpc\":\"2.0\",\"id\":12,\"method\":\"client.capabilities\",\"params\":{\"server_requests\":true}}",
+        "→ {\"jsonrpc\":\"2.0\",\"id\":13,\"method\":\"pet.info\",\"params\":{\"profile\":\"default\"}}",
+        "→ {\"jsonrpc\":\"2.0\",\"id\":14,\"method\":\"session.active_list\",\"params\":{}}",
+        "→ {\"jsonrpc\":\"2.0\",\"id\":15,\"method\":\"profiles.list\",\"params\":{}}",
+        "← {\"jsonrpc\": \"2.0\", \"id\": 2, \"result\": {\"provider_configured\": true, \"ready\": true, \"free_tier_account\": false, \"free_tier_route\": false, \"other_providers\": true, \"inference_provider\": \"custom\"}}",
+        "← {\"jsonrpc\": \"2.0\", \"id\": 4, \"result\": {\"has_guest\": false, \"enabled\": false, \"available\": false, \"notice_pending\": false, \"model\": \"nous/welcome\", \"label\": \"Nous · free tier\"}}",
+        "← {\"jsonrpc\": \"2.0\", \"id\": 3, \"result\": {\"ok\": true, \"provider\": \"custom\", \"model\": \"DeepSeek-V4-Flash\", \"source\": \"custom_provider:airouter-ch\", \"free_tier_route\": false}}",
+        "← {\"jsonrpc\": \"2.0\", \"id\": 5, \"result\": {\"provider_configured\": true, \"ready\": true, \"free_tier_account\": false, \"free_tier_route\": false, \"other_providers\": true, \"inference_provider\": \"custom\"}}",
+        "← {\"jsonrpc\": \"2.0\", \"id\": 7, \"result\": {\"enabled\": false}}",
+        "← {\"jsonrpc\": \"2.0\", \"id\": 9, \"result\": {\"sessions\": [{\"current\": false, \"id\": \"3eb2c17b\", \"last_active\": 1791481131.490486, \"message_count\": 0, \"model\": \"DeepSeek-V4-Flash\", \"preview\": \"\", \"session_key\": \"20261008_143851_dd5478\", \"started_at\": 1791481131.490486, \"status\": \"idle\", \"title\": \"\"}]}}",
+        "← {\"jsonrpc\": \"2.0\", \"id\": 6, \"result\": {\"ok\": true, \"provider\": \"custom\", \"model\": \"DeepSeek-V4-Flash\", \"source\": \"custom_provider:airouter-ch\", \"free_tier_route\": false}}",
+        "→ {\"jsonrpc\":\"2.0\",\"id\":16,\"method\":\"free_tier.status\",\"params\":{}}",
+        "→ {\"jsonrpc\":\"2.0\",\"id\":17,\"method\":\"shared_metrics.status\",\"params\":{}}",
+        "← {\"jsonrpc\": \"2.0\", \"id\": 10, \"result\": {\"enabled\": false, \"send\": false, \"decided\": true, \"reask\": false}}"
+      ]
+    },
+    {
+      "url": "ws://127.0.0.1:9119/api/pty?token=spike-token-123&attach=pty-muztnd10-6vb4k",
+      "events": [],
+      "frames": []
+    }
+  ]
+}

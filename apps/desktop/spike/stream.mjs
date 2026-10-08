@@ -12,10 +12,11 @@
  *      message sent in each, and the transcripts are checked for leakage in
  *      BOTH directions. A regression here must fail the gate, not pass quietly.
  *
- * Leakage assertion: the sidebar legitimately lists every session, so a marker
- * appearing once means "row only, not in the transcript" and twice means
- * "row AND transcript". That distinguishes contamination from normal presence
- * without hard-coding a transcript container selector.
+ * Leakage assertion (scoped): the verdict counts markers inside the transcript
+ * region (`[data-slot="aui_user-message-text"]`) only — the sidebar row
+ * renders its own title several times (title + preview + marquee), so
+ * whole-body counts could not tell "own row" from "leaked transcript".
+ * Cross-marker transcript count must be 0; own-marker transcript count >= 1.
  *
  * Usage:
  *   node spike/stream.mjs [--width N] [--height N] [--label name] [--url u]
@@ -152,10 +153,31 @@ async function sendTurn(text, labelShot) {
 const rateLimited = () =>
   page.evaluate(() => /rate limited/i.test(document.body.innerText || ''))
 
-/** How many times a marker is rendered in the document. */
+/** How many times a marker is rendered in the document (diagnostic only). */
 const markerCount = async marker => {
   return page.evaluate(m => {
     const text = document.body.innerText || ''
+    let count = 0
+    let i = text.indexOf(m)
+    while (i !== -1) { count++; i = text.indexOf(m, i + m.length) }
+    return count
+  }, marker)
+}
+
+/**
+ * Occurrences of a marker inside the TRANSCRIPT region (user message bubbles).
+ *
+ * This is the verdict scope for leakage: the sidebar row legitimately renders
+ * a session's own text more than once (title + preview snippet + marquee
+ * duplicate), so whole-body counts conflated "own row renders twice" with
+ * "leaked into the other transcript". Scoping to `aui_user-message-text`
+ * asserts exactly what the gate means — no cross-session transcript
+ * contamination — regardless of how the row renders its own title.
+ */
+const transcriptCount = async marker => {
+  return page.evaluate(m => {
+    const nodes = [...document.querySelectorAll('[data-slot="aui_user-message-text"]')]
+    const text = nodes.map(n => n.innerText || '').join('\n')
     let count = 0
     let i = text.indexOf(m)
     while (i !== -1) { count++; i = text.indexOf(m, i + m.length) }
@@ -228,17 +250,15 @@ deltasB > 0 ? pass(`${deltasB - deltasA} message.delta novos no turno B`) : fail
 
 const aInB = await markerCount(MARK_A)
 const bInB = await markerCount(MARK_B)
-const expB = await expectActive(MARK_B)
-// A's own transcript must contribute exactly one rendering beyond its sidebar
-// row — i.e. A must not be in B's transcript.
-const aExpected = (await rowVisible(MARK_A)) ? 1 : 0
-console.log(`  B ativa -> A ${aInB}x (esperado ${aExpected}), B ${bInB}x (esperado ${expB})`)
-aInB === aExpected
+const aTrB = await transcriptCount(MARK_A)
+const bTrB = await transcriptCount(MARK_B)
+console.log(`  B ativa -> transcript: A ${aTrB}x (esperado 0), B ${bTrB}x (esperado >=1); body: A ${aInB}x, B ${bInB}x`)
+aTrB === 0
   ? pass('transcript de B NÃO contém o texto da sessão A')
-  : fail(`VAZAMENTO: texto da sessão A aparece ${aInB}x com B ativa (esperado ${aExpected})`)
-bInB === expB
+  : fail(`VAZAMENTO: texto da sessão A aparece ${aTrB}x no transcript de B (esperado 0)`)
+bTrB >= 1
   ? pass('transcript de B contém o texto da sessão B')
-  : fail(`texto da sessão B ausente do próprio transcript (${bInB}x, esperado ${expB})`)
+  : fail('texto da sessão B ausente do próprio transcript')
 await shot('3-sessionB-active')
 
 // Switch back to A through the sidebar, and VERIFY the switch rather than
@@ -253,16 +273,16 @@ await shot('4-sessionA-restored')
 
 const aInA = await markerCount(MARK_A)
 const bInA = await markerCount(MARK_B)
-const expA = await expectActive(MARK_A)
-const bExpected = (await rowVisible(MARK_B)) ? 1 : 0
-console.log(`  A ativa -> A ${aInA}x (esperado ${expA}), B ${bInA}x (esperado ${bExpected})`)
+const aTrA = await transcriptCount(MARK_A)
+const bTrA = await transcriptCount(MARK_B)
+console.log(`  A ativa -> transcript: A ${aTrA}x (esperado >=1), B ${bTrA}x (esperado 0); body: A ${aInA}x, B ${bInA}x`)
 
-aInA === expA
+aTrA >= 1
   ? pass('transcript de A contém o texto da sessão A (troca realmente ocorreu)')
-  : fail(`a troca para A nao ocorreu: A aparece ${aInA}x, esperado ${expA}`)
-bInA === bExpected
+  : fail('a troca para A nao ocorreu: texto da sessão A ausente do transcript')
+bTrA === 0
   ? pass('transcript de A NÃO contém o texto da sessão B')
-  : fail(`VAZAMENTO: texto da sessão B aparece ${bInA}x com A ativa (esperado ${bExpected})`)
+  : fail(`VAZAMENTO: texto da sessão B aparece ${bTrA}x no transcript de A (esperado 0)`)
 
 // ── Report ─────────────────────────────────────────────────────────────────
 const all = await gwFrames()
