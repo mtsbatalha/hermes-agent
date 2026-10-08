@@ -216,6 +216,14 @@ async function openSettingsSection(label) {
   await page.getByRole('menuitem', { name: label, exact: true }).click()
 }
 
+// A concurrent Hermes installation can park a refusal toast behind collapsed
+// notifications ('Show N more') — expand first so the check sees refusal copy
+// a user would also have to expand to read. No-op when nothing is collapsed.
+async function expandNotifications() {
+  const more = page.getByText('more notification', { exact: false })
+  if (await more.count()) await more.first().click({ timeout: 8000 })
+}
+
 // Sessions sidebar, the other control that changes shape with the viewport.
 // `sessions` is collapsible, so below 47.5rem it leaves the grid entirely
 // (tree-group.tsx drops collapsible panes on narrow) and is revealed as a
@@ -288,6 +296,7 @@ try {
 
   await check('connection-apply', async () => {
     await page.getByRole('button', { name: 'Save and reconnect', exact: true }).click()
+    await expandNotifications()
     await page
       .getByText('Switching gateways is not supported in this web client yet. Open the target gateway URL instead.', {
         exact: false
@@ -433,6 +442,7 @@ try {
   await check('folder-picker-degradation', async () => {
     await page.getByRole('button', { name: 'Add context', exact: true }).click()
     await page.getByRole('menuitem', { name: 'Folder…', exact: true }).click()
+    await expandNotifications()
     await page
       .getByText('Browser folders have no gateway path. Choose a folder on the gateway instead.', { exact: false })
       .waitFor()

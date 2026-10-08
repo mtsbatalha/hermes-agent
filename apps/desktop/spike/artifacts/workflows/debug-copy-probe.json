@@ -1,0 +1,21 @@
+{
+  "bridgeApply": {
+    "rejected": true,
+    "message": "applyConnectionConfig: Switching gateways is not supported in this web client yet. Open the target gateway URL instead.",
+    "detail": "Switching gateways is not supported in this web client yet. Open the target gateway URL instead."
+  },
+  "uiApply": {
+    "hasFull": false,
+    "hasPartial": false,
+    "toastCount": 1,
+    "toasts": [
+      "Another Hermes installation is using this profile. Both installations share its settings and data, so changes can conflict. You can continue, or close the other installation before making changes."
+    ],
+    "bodyTail": "Sessions\nAbout\nSettings\nGateways\nThis window\nConnection mode\nLocal gateway\n\nStart a private Hermes backend on localhost. This is the default and works offline.\n\nHermes Cloud\n\nSign in once to Hermes Cloud and pick from the agents on your account — no URL to paste.\n\nRemote gateway\n\nConnect this desktop shell to a remote Hermes backend.\n\nConnect via SSH\n\nHermes is launched on the remote over SSH and tunneled to this app — nothing to start or expose yourself. Requires working key-based SSH access to the host.\n\nSave for next restart\nSave and reconnect\nSearch\nCtrl\nK\n\nAnother Hermes installation is using this profile. Both installations share its settings and data, so changes can conflict. You can continue, or close the other installation before making changes.\n\nShow 1 more notification\nClear all"
+  },
+  "uiFolder": {
+    "hasFull": false,
+    "hasPartial": false,
+    "bodyTail": "riefly #6\n23h\nOk acknowledging pasted text #2\n23h\nAcknowledge wall of text #4\n1d\nResponder à mensagem de texto colado\n1d\nAcknowledge pasted text briefly #5\n1d\nAcknowledging pasted wall of text\n1d\nGated cookie auth works\n1d\nProduction web client works\n1d\nAcknowledge pasted text briefly #4\n1d\nAcknowledge pasted text with ok #3\n1d\nNEW SESSION\n\nHERMES AGENT\n\nDrop a file path, a traceback, or a rough idea. I'll investigate, suggest next steps, and keep things reversible.\n\nScroll to bottom\n⠋\n⠙\n⠹\n⠸\n⠼\n⠴\n⠦\n⠧\n⠇\n⠏\nWaking up …\nDeepSeek V4 · Flash\nHigh\nGateway\nready\nSmart\n\nAnother Hermes installation is using this profile. Both installations share its settings and data, so changes can conflict. You can continue, or close the other installation before making changes.\n\nShow 2 more notifications\nClear all"
+  }
+}
