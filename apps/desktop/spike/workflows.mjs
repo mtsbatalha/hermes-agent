@@ -162,21 +162,19 @@ async function check(name, run) {
   }
   console.log(`${results.at(-1).status.toUpperCase()} ${name}: ${JSON.stringify(results.at(-1))}`)
 }
-// Turn-settle observation that CANNOT miss its window: the Stop button is
-// sampled inside the page from BEFORE the submit, so a turn that starts and
-// finishes while the test is still asserting on attach frames is recorded
-// anyway. The older pattern (start polling in the test AFTER those asserts)
-// reported a false "never settled" whenever the turn had already finished by
-// the first poll — which is what the image scenarios hit for real.
+// Turn-settle observation for flows where Stop is a reliable busy/idle signal.
+// Attachment-turn instead verifies the exact assistant reply in the transcript;
+// brief control-row remounts can otherwise look like idle when they are not.
 async function startStopProbe() {
   await page.evaluate(() => {
     clearInterval(window.__stopTimer)
-    window.__stopProbe = { seen: 0, cleared: 0, present: false }
+    const state = { seen: 0, cleared: 0, present: false }
+    window.__stopProbe = state
     window.__stopTimer = setInterval(() => {
       const present = Boolean(document.querySelector('button[aria-label="Stop"]'))
-      if (present) window.__stopProbe.seen += 1
-      else if (window.__stopProbe.present) window.__stopProbe.cleared += 1
-      window.__stopProbe.present = present
+      if (present) state.seen += 1
+      else if (state.present) state.cleared += 1
+      state.present = present
     }, 100)
   })
 }
@@ -205,6 +203,19 @@ async function assertTurnSettled(label, budgetMs = 180_000) {
 // RAIL_HIDDEN/BAR_HIDDEN in app/overlays/overlay-split-layout.tsx; the menu row
 // is a DropdownMenuItem, i.e. role=menuitem with the section label.
 const NARROW_NAV = viewport.width < 760
+// Toasts a user already read get dismissed — at 390px a sticky alert (e.g.
+// the concurrent-installation warning) parks over the collapsed settings-nav
+// trigger and never fades on its own. Dismiss before navigating, exactly as
+// a user clearing the way would; refusal assertions later never dismiss.
+async function dismissNotifications() {
+  for (let i = 0; i < 12; i++) {
+    const b = page.getByRole('button', { name: 'Dismiss notification', exact: true })
+    if (!(await b.count())) break
+    await b.first().click({ timeout: 8000 })
+    await page.waitForTimeout(150)
+  }
+}
+
 async function openSettingsSection(label) {
   if (!NARROW_NAV) {
     await page.getByRole('button', { name: label, exact: true }).click()
@@ -212,7 +223,22 @@ async function openSettingsSection(label) {
   }
   // One dropdown trigger exists in the overlay (the collapsed nav); the
   // settings form's own selects are comboboxes, not menu triggers.
-  await page.locator('[data-slot="dropdown-menu-trigger"]:has(.codicon-chevron-down)').first().click()
+  await dismissNotifications()
+  // The sticky notification can race the next click as it dismisses. Retry
+  // only Playwright's explicit pointer-interception case; do not force clicks.
+  const navTrigger = '[data-slot="dropdown-menu-trigger"]:has(.codicon-chevron-down)'
+  const trigger = page.locator(navTrigger).first()
+  let opened = false
+  for (let attempt = 0; attempt < 5 && !opened; attempt++) {
+    await dismissNotifications()
+    try {
+      await trigger.click({ timeout: 3000 })
+      opened = true
+    } catch (error) {
+      if (!error.message.includes('intercepts pointer events') || attempt === 4) throw error
+    }
+  }
+  assert.ok(opened, `Could not open narrow settings navigation for ${label}.`)
   await page.getByRole('menuitem', { name: label, exact: true }).click()
 }
 
@@ -384,6 +410,7 @@ try {
     )
     return 'Changed preference, reloaded, verified persistence, restored original.'
   })
+  if (NARROW_NAV) await dismissNotifications()
   await page.getByRole('button', { name: 'Close settings', exact: true }).click()
   await check('url-context', async () => {
     const url = 'https://example.com/web-workflow-probe'
@@ -1201,23 +1228,11 @@ try {
       // ref chip, so it carries no data-ref-text — the submit frame is the
       // only on-the-record statement of what was sent.
       const submitsBefore = await page.evaluate(() => window.__submits.length)
+      // Start observing inside the page before submit, so this catches even
+      // a turn whose stop/start/render clears between test-runner polls.
+      await startStopProbe()
       await composer.press('Enter')
-
-      // Turn settle: busy+empty the composer shows "Stop"; when the turn ends
-      // it flips back (idle+empty has NO send button by design — the voice
-      // button takes the slot). So: Stop appeared, then disappeared.
-      const stop = page.getByRole('button', { name: 'Stop', exact: true })
-      const settleDeadline = Date.now() + 180_000
-      let sawStop = false
-      let settled = false
-      while (Date.now() < settleDeadline) {
-        if ((await stop.count()) > 0) sawStop = true
-        else if (sawStop) {
-          settled = true
-          break
-        }
-        await page.waitForTimeout(1000)
-      }
+      await page.waitForFunction(n => window.__submits.length > n, submitsBefore, { timeout: 20_000 })
 
       const submits = await page.evaluate(() => window.__submits)
       // FIRST prompt.submit at/after our baseline, never the bare baseline index:
@@ -1229,8 +1244,6 @@ try {
       const refMatch = turnFrame.match(/@file:([^"\\]+(?:\\\\[^"\\]+)*)/)
       const citedPath = refMatch ? refMatch[1].replace(/\\(.)/g, '$1') : null
       assert.ok(citedPath, `submit must cite @file:, got: ${turnFrame.slice(0, 200)}`)
-      assert.ok(settled, 'the turn must settle (Stop appears, then clears).')
-
       const readBack = await page.evaluate(async path => {
         try {
           const data = await window.hermesDesktop.readFileDataUrl(path)
@@ -1243,13 +1256,20 @@ try {
       }, citedPath)
       assert.equal(readBack, nonce, 'the cited @file: path must resolve to the attached bytes.')
 
+      // The transcript is the behavioral oracle: require this turn's exact
+      // requested reply, not merely its submitted prompt or an input that may
+      // have become idle before React rendered the Stop button.
+      await page.getByText(nonce, { exact: true }).last().waitFor({ timeout: 180_000 })
       const transcript = await page.evaluate(() => document.body.innerText || '')
       assert.ok(transcript.includes(nonce), 'the agent reply must be visible in the transcript with the file contents.')
-      return { citedPath, uploaded: citedPath !== null, settled, bytesMatched: true }
+      return { citedPath, uploaded: citedPath !== null, replyVisible: true, bytesMatched: true }
     } finally {
-      await page.evaluate(name => {
+      await page.evaluate(() => {
         delete window.showOpenFilePicker
-      }, filename)
+        clearInterval(window.__stopTimer)
+        delete window.__stopTimer
+        delete window.__stopProbe
+      })
     }
   })
 } catch (error) {

@@ -1,6 +1,6 @@
 {
   "base": "http://127.0.0.1:5176/spike.html",
-  "measuredAt": "2026-10-08T21:15:30.554Z",
+  "measuredAt": "2026-10-09T02:28:36.168Z",
   "results": [
     {
       "name": "logs-capability",
@@ -44,8 +44,8 @@
       "name": "terminal-ui",
       "status": "passed",
       "detail": {
-        "receivedBytes": 1003,
-        "deliveredBytes": 969,
+        "receivedBytes": 991,
+        "deliveredBytes": 961,
         "resizeFrames": 2,
         "closed": true
       }
@@ -63,7 +63,7 @@
       "status": "passed",
       "detail": {
         "editorLength": 0,
-        "submittedRef": "pasted_content_2026-10-08T21-13-22-208Z_4ca168.txt",
+        "submittedRef": "pasted_content_2026-10-09T02-28-11-087Z_060fe9.txt",
         "settled": true
       }
     },
@@ -80,8 +80,8 @@
       "name": "clipboard-image-real-paste",
       "status": "passed",
       "detail": {
-        "chip": "clipboard-image-mv01cb6r.png",
-        "stagedPath": "C:\\Users\\Mateus\\.hermes-web-attachments\\aae136c1-e40e-4405-a928-2026b2a87de4\\clipboard-image-mv01cb6r.png",
+        "chip": "clipboard-image-mv0ciy3h.png",
+        "stagedPath": "C:\\Users\\Mateus\\.hermes-web-attachments\\94429698-a1e7-47d4-9346-0dd11748f294\\clipboard-image-mv0ciy3h.png",
         "clipboardBytes": 88
       }
     },
@@ -91,13 +91,13 @@
       "detail": {
         "drops": 2,
         "stagedNames": [
-          "dnd-input-mv01cbcp.png",
-          "dnd-root-mv01cbcp.png"
+          "dnd-input-mv0ciy9o.png",
+          "dnd-root-mv0ciy9o.png"
         ],
         "bytesMatch": true,
         "attachedOnWire": true,
         "uploadStreams": 2,
-        "stopTicks": 30,
+        "stopTicks": 32,
         "settled": true
       }
     },
@@ -105,9 +105,9 @@
       "name": "attachment-turn",
       "status": "passed",
       "detail": {
-        "citedPath": "C:\\Users\\Mateus\\AppData\\Local\\hermes\\attachments\\attach-turn-mv01cjvp.txt",
+        "citedPath": "C:\\Users\\Mateus\\AppData\\Local\\hermes\\attachments\\attach-turn-mv0cj7ei.txt",
         "uploaded": true,
-        "settled": true,
+        "replyVisible": true,
         "bytesMatched": true
       }
     }
@@ -123,15 +123,7 @@
       "status": 200
     },
     {
-      "path": "/api/profiles/active",
-      "status": 200
-    },
-    {
       "path": "/api/audio/voice-live/status",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles/active",
       "status": 200
     },
     {
@@ -151,6 +143,10 @@
       "status": 200
     },
     {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
       "path": "/api/host/identity",
       "status": 200
     },
@@ -171,10 +167,6 @@
       "status": 200
     },
     {
-      "path": "/api/profiles",
-      "status": 200
-    },
-    {
       "path": "/api/host/identity",
       "status": 200
     },
@@ -183,11 +175,11 @@
       "status": 200
     },
     {
-      "path": "/api/profiles",
+      "path": "/api/config",
       "status": 200
     },
     {
-      "path": "/api/config",
+      "path": "/api/profiles",
       "status": 200
     },
     {
@@ -195,15 +187,15 @@
       "status": 200
     },
     {
-      "path": "/api/status",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles",
-      "status": 200
-    },
-    {
       "path": "/api/config/defaults",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/default-cwd",
       "status": 200
     },
     {
@@ -211,14 +203,6 @@
       "status": 200
     },
     {
-      "path": "/api/fs/default-cwd",
-      "status": 200
-    },
-    {
-      "path": "/api/config",
-      "status": 200
-    },
-    {
       "path": "/api/profiles",
       "status": 200
     },
@@ -228,10 +212,6 @@
     },
     {
       "path": "/api/config",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles",
       "status": 200
     },
     {
@@ -239,11 +219,15 @@
       "status": 200
     },
     {
-      "path": "/api/profiles/sessions/sidebar",
+      "path": "/api/profiles",
       "status": 200
     },
     {
-      "path": "/api/profiles/sessions/sidebar",
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
       "status": 200
     },
     {
@@ -251,7 +235,15 @@
       "status": 200
     },
     {
-      "path": "/api/status",
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
       "status": 200
     },
     {
@@ -259,7 +251,7 @@
       "status": 200
     },
     {
-      "path": "/api/cron/jobs",
+      "path": "/api/status",
       "status": 200
     },
     {
@@ -271,7 +263,7 @@
       "status": 200
     },
     {
-      "path": "/api/config/schema",
+      "path": "/api/status",
       "status": 200
     },
     {
@@ -279,11 +271,7 @@
       "status": 200
     },
     {
-      "path": "/api/profiles",
-      "status": 200
-    },
-    {
-      "path": "/api/status",
+      "path": "/api/config/schema",
       "status": 200
     },
     {
@@ -295,7 +283,11 @@
       "status": 200
     },
     {
-      "path": "/api/status",
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
       "status": 200
     },
     {
@@ -303,7 +295,19 @@
       "status": 200
     },
     {
+      "path": "/api/model/auxiliary",
+      "status": 200
+    },
+    {
+      "path": "/api/model/moa",
+      "status": 200
+    },
+    {
       "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/model/info",
       "status": 200
     },
     {
@@ -323,6 +327,26 @@
       "status": 200
     },
     {
+      "path": "/api/model/options",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
       "path": "/api/status",
       "status": 200
     },
@@ -363,15 +387,15 @@
       "status": 200
     },
     {
-      "path": "/api/config",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles/sessions/sidebar",
-      "status": 200
-    },
-    {
       "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
       "status": 200
     },
     {
@@ -379,7 +403,11 @@
       "status": 200
     },
     {
-      "path": "/api/profiles",
+      "path": "/api/fs/default-cwd",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
       "status": 200
     },
     {
@@ -388,6 +416,38 @@
     },
     {
       "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/default-cwd",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/config/defaults",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
       "status": 200
     },
     {
@@ -399,31 +459,11 @@
       "status": 200
     },
     {
-      "path": "/api/profiles/active",
-      "status": 200
-    },
-    {
-      "path": "/api/status",
-      "status": 200
-    },
-    {
-      "path": "/api/status",
+      "path": "/api/profiles",
       "status": 200
     },
     {
       "path": "/api/config/defaults",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/default-cwd",
-      "status": 200
-    },
-    {
-      "path": "/api/config",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles",
       "status": 200
     },
     {
@@ -431,35 +471,11 @@
       "status": 200
     },
     {
-      "path": "/api/fs/default-cwd",
-      "status": 200
-    },
-    {
       "path": "/api/audio/voice-live/status",
       "status": 200
     },
     {
-      "path": "/api/profiles",
-      "status": 200
-    },
-    {
-      "path": "/api/config",
-      "status": 200
-    },
-    {
-      "path": "/api/config/defaults",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles/sessions/sidebar",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles",
-      "status": 200
-    },
-    {
-      "path": "/api/audio/voice-live/status",
+      "path": "/api/profiles/active",
       "status": 200
     },
     {
@@ -471,11 +487,7 @@
       "status": 200
     },
     {
-      "path": "/api/profiles/active",
-      "status": 200
-    },
-    {
-      "path": "/api/status",
+      "path": "/api/profiles",
       "status": 200
     },
     {
@@ -527,7 +539,19 @@
       "status": 200
     },
     {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
       "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
       "status": 200
     },
     {
@@ -539,15 +563,11 @@
       "status": 200
     },
     {
-      "path": "/api/config",
+      "path": "/api/status",
       "status": 200
     },
     {
       "path": "/api/profiles/sessions/sidebar",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles/active",
       "status": 200
     },
     {
@@ -555,6 +575,14 @@
       "status": 200
     },
     {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/default-cwd",
+      "status": 200
+    },
+    {
       "path": "/api/model/info",
       "status": 200
     },
@@ -563,7 +591,19 @@
       "status": 200
     },
     {
-      "path": "/api/profiles/active",
+      "path": "/api/fs/default-cwd",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
+      "status": 200
+    },
+    {
+      "path": "/api/config/defaults",
       "status": 200
     },
     {
@@ -571,27 +611,11 @@
       "status": 200
     },
     {
-      "path": "/api/cron/jobs",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles/active",
-      "status": 200
-    },
-    {
-      "path": "/api/status",
-      "status": 200
-    },
-    {
-      "path": "/api/status",
+      "path": "/api/profiles/sessions/sidebar",
       "status": 200
     },
     {
       "path": "/api/config/defaults",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/default-cwd",
       "status": 200
     },
     {
@@ -600,26 +624,6 @@
     },
     {
       "path": "/api/profiles",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/default-cwd",
-      "status": 200
-    },
-    {
-      "path": "/api/model/info",
-      "status": 200
-    },
-    {
-      "path": "/api/config/defaults",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles/sessions/sidebar",
-      "status": 200
-    },
-    {
-      "path": "/api/config",
       "status": 200
     },
     {
@@ -627,7 +631,7 @@
       "status": 200
     },
     {
-      "path": "/api/profiles",
+      "path": "/api/cron/jobs",
       "status": 200
     },
     {
@@ -635,23 +639,23 @@
       "status": 200
     },
     {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/model/info",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
       "path": "/api/status",
-      "status": 200
-    },
-    {
-      "path": "/api/cron/jobs",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles",
       "status": 200
     },
     {
@@ -699,6 +703,18 @@
       "status": 200
     },
     {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
       "path": "/api/dashboard/plugins",
       "status": 200
     },
@@ -707,7 +723,7 @@
       "status": 200
     },
     {
-      "path": "/api/dashboard/plugins",
+      "path": "/api/profiles/active",
       "status": 200
     },
     {
@@ -715,7 +731,15 @@
       "status": 200
     },
     {
-      "path": "/api/profiles/active",
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
       "status": 200
     },
     {
@@ -727,19 +751,19 @@
       "status": 200
     },
     {
-      "path": "/api/config",
-      "status": 200
-    },
-    {
-      "path": "/api/config",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles/active",
-      "status": 200
-    },
-    {
       "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
       "status": 200
     },
     {
@@ -747,7 +771,7 @@
       "status": 200
     },
     {
-      "path": "/api/profiles",
+      "path": "/api/profiles/active",
       "status": 200
     },
     {
@@ -763,7 +787,7 @@
       "status": 200
     },
     {
-      "path": "/api/profiles",
+      "path": "/api/host/identity",
       "status": 200
     },
     {
@@ -775,15 +799,11 @@
       "status": 200
     },
     {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
       "path": "/api/profiles/active",
-      "status": 200
-    },
-    {
-      "path": "/api/config",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles/sessions/sidebar",
       "status": 200
     },
     {
@@ -791,7 +811,7 @@
       "status": 200
     },
     {
-      "path": "/api/status",
+      "path": "/api/config",
       "status": 200
     },
     {
@@ -799,11 +819,15 @@
       "status": 200
     },
     {
-      "path": "/api/host/identity",
+      "path": "/api/fs/default-cwd",
       "status": 200
     },
     {
-      "path": "/api/fs/default-cwd",
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/config/defaults",
       "status": 200
     },
     {
@@ -815,11 +839,23 @@
       "status": 200
     },
     {
+      "path": "/api/audio/voice-live/status",
+      "status": 200
+    },
+    {
       "path": "/api/profiles",
       "status": 200
     },
     {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
       "path": "/api/cron/jobs",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
       "status": 200
     },
     {
@@ -827,15 +863,15 @@
       "status": 200
     },
     {
+      "path": "/api/model/info",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
       "path": "/api/config/defaults",
-      "status": 200
-    },
-    {
-      "path": "/api/audio/voice-live/status",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles",
       "status": 200
     },
     {
@@ -847,35 +883,15 @@
       "status": 200
     },
     {
-      "path": "/api/profiles",
-      "status": 200
-    },
-    {
-      "path": "/api/model/info",
-      "status": 200
-    },
-    {
-      "path": "/api/status",
-      "status": 200
-    },
-    {
-      "path": "/api/config/defaults",
-      "status": 200
-    },
-    {
-      "path": "/api/config",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles/active",
-      "status": 200
-    },
-    {
       "path": "/api/files",
       "status": 200
     },
     {
-      "path": "/api/audio/voice-live/status",
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
       "status": 200
     },
     {
@@ -883,19 +899,15 @@
       "status": 200
     },
     {
-      "path": "/api/profiles",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles/sessions",
-      "status": 200
-    },
-    {
       "path": "/api/tools/terminal/backends",
       "status": 200
     },
     {
-      "path": "/api/status",
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/audio/voice-live/status",
       "status": 200
     },
     {
@@ -903,22 +915,18 @@
       "status": 200
     },
     {
-      "path": "/api/sessions/20261008_181322_5687e0/timeline",
+      "path": "/api/profiles/sessions",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/sessions/20261008_232811_21649a/timeline",
       "status": 404
     },
     {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/git-root",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
       "path": "/api/profiles/sessions/sidebar",
       "status": 200
     },
@@ -951,19 +959,11 @@
       "status": 200
     },
     {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
+      "path": "/api/sessions/20261008_232811_21649a/messages",
       "status": 200
     },
     {
       "path": "/api/profiles/sessions/sidebar",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles/sessions",
       "status": 200
     },
     {
@@ -971,219 +971,7 @@
       "status": 200
     },
     {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles",
-      "status": 200
-    },
-    {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles",
-      "status": 200
-    },
-    {
-      "path": "/api/status",
-      "status": 200
-    },
-    {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles",
-      "status": 200
-    },
-    {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles/sessions/sidebar",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles/sessions",
-      "status": 200
-    },
-    {
-      "path": "/api/sessions/20261008_181322_5687e0/messages",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles/sessions/sidebar",
-      "status": 200
-    },
-    {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/files",
-      "status": 200
-    },
-    {
-      "path": "/api/cron/jobs",
-      "status": 200
-    },
-    {
-      "path": "/api/sessions/20261008_181322_5687e0/messages",
+      "path": "/api/sessions/20261008_232811_21649a/timeline",
       "status": 200
     },
     {
@@ -1192,54 +980,6 @@
     },
     {
       "path": "/api/config",
-      "status": 200
-    },
-    {
-      "path": "/api/cron/jobs",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/files/upload-stream",
-      "status": 200
-    },
-    {
-      "path": "/api/audio/voice-live/status",
-      "status": 200
-    },
-    {
-      "path": "/api/sessions/20261008_181322_5687e0/timeline",
-      "status": 200
-    },
-    {
-      "path": "/api/sessions/20261008_181322_5687e0/timeline",
-      "status": 200
-    },
-    {
-      "path": "/api/dashboard/plugins",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/list",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles/sessions/sidebar",
-      "status": 200
-    },
-    {
-      "path": "/api/config/defaults",
-      "status": 200
-    },
-    {
-      "path": "/api/config",
-      "status": 200
-    },
-    {
-      "path": "/api/cron/jobs",
       "status": 200
     },
     {
@@ -1255,55 +995,7 @@
       "status": 200
     },
     {
-      "path": "/api/fs/read-data-url",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/read-data-url",
-      "status": 200
-    },
-    {
-      "path": "/api/files",
-      "status": 200
-    },
-    {
-      "path": "/api/files",
-      "status": 200
-    },
-    {
-      "path": "/api/files/upload-stream",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/read-data-url",
-      "status": 200
-    },
-    {
-      "path": "/api/files",
-      "status": 200
-    },
-    {
-      "path": "/api/files/upload-stream",
-      "status": 200
-    },
-    {
-      "path": "/api/fs/read-data-url",
-      "status": 200
-    },
-    {
-      "path": "/api/sessions/20261008_181322_5687e0/timeline",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles/sessions/sidebar",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles/sessions",
-      "status": 200
-    },
-    {
-      "path": "/api/cron/jobs",
+      "path": "/api/sessions/20261008_232811_21649a/timeline",
       "status": 200
     },
     {
@@ -1311,23 +1003,35 @@
       "status": 200
     },
     {
-      "path": "/api/profiles",
-      "status": 200
-    },
-    {
       "path": "/api/fs/list",
       "status": 200
     },
     {
-      "path": "/api/profiles",
+      "path": "/api/profiles/sessions/sidebar",
       "status": 200
     },
     {
-      "path": "/api/profiles",
+      "path": "/api/cron/jobs",
       "status": 200
     },
     {
-      "path": "/api/sessions/20261008_181322_5687e0/messages",
+      "path": "/api/config/defaults",
+      "status": 200
+    },
+    {
+      "path": "/api/files",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/files/upload-stream",
+      "status": 200
+    },
+    {
+      "path": "/api/audio/voice-live/status",
       "status": 200
     },
     {
@@ -1336,6 +1040,66 @@
     },
     {
       "path": "/api/fs/read-data-url",
+      "status": 200
+    },
+    {
+      "path": "/api/files",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions",
+      "status": 200
+    },
+    {
+      "path": "/api/sessions/20261008_232811_21649a/messages",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/read-data-url",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
+      "status": 200
+    },
+    {
+      "path": "/api/files",
+      "status": 200
+    },
+    {
+      "path": "/api/files/upload-stream",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/read-data-url",
+      "status": 200
+    },
+    {
+      "path": "/api/files",
+      "status": 200
+    },
+    {
+      "path": "/api/files/upload-stream",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/read-data-url",
+      "status": 200
+    },
+    {
+      "path": "/api/sessions/20261008_232811_21649a/timeline",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
       "status": 200
     },
     {
@@ -1359,15 +1123,31 @@
       "status": 200
     },
     {
-      "path": "/api/status",
-      "status": 200
-    },
-    {
       "path": "/api/dashboard/plugins",
       "status": 200
     },
     {
       "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions",
+      "status": 200
+    },
+    {
+      "path": "/api/sessions/20261008_232811_21649a/messages",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/read-data-url",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
       "status": 200
     },
     {
@@ -1387,47 +1167,11 @@
       "status": 200
     },
     {
-      "path": "/api/sessions/20261008_181322_5687e0/timeline",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles/sessions/sidebar",
-      "status": 200
-    },
-    {
-      "path": "/api/cron/jobs",
-      "status": 200
-    },
-    {
-      "path": "/api/config/defaults",
-      "status": 200
-    },
-    {
-      "path": "/api/config",
-      "status": 200
-    },
-    {
-      "path": "/api/audio/voice-live/status",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles/sessions/sidebar",
-      "status": 200
-    },
-    {
-      "path": "/api/sessions/20261008_181322_5687e0/messages",
-      "status": 200
-    },
-    {
-      "path": "/api/profiles/sessions",
-      "status": 200
-    },
-    {
-      "path": "/api/cron/jobs",
-      "status": 200
-    },
-    {
       "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/read-data-url",
       "status": 200
     },
     {
@@ -1435,7 +1179,7 @@
       "status": 200
     },
     {
-      "path": "/api/fs/read-data-url",
+      "path": "/api/sessions/20261008_232811_21649a/timeline",
       "status": 200
     }
   ]
