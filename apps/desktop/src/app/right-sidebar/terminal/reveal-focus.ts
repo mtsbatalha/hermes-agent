@@ -1,8 +1,9 @@
 import { paletteToggle } from '@/app/command-palette/contrib'
-import { isPaneVisible, togglePaneVisible } from '@/components/pane-shell/tree/store'
+import { isNarrowRevealed, isPaneVisible, togglePaneVisible } from '@/components/pane-shell/tree/store'
 import { Terminal } from '@/lib/icons'
 import { isFocusWithin } from '@/lib/keybinds/combo'
 import { trackArea } from '@/store/desktop-metrics'
+import { revealNarrowPane } from '@/store/layout'
 
 const TERMINAL_FOCUS_SCOPE = '[data-terminal]'
 
@@ -51,6 +52,23 @@ function scheduleFocusAttempt(attempts: number): void {
  * focus; the hide direction does not.
  */
 export function toggleTerminalPane(): void {
+  // On a narrow viewport the pane has LEFT the grid for its bottom sheet, so
+  // the tree's visibility is the wrong question — and the docked
+  // `$terminalTakeover` boolean stays true behind the overlay, so it cannot
+  // answer either. Flip the overlay itself, pinned, the way Ctrl+B flips the
+  // sidebar's edge rail.
+  const sheetRevealed = isNarrowRevealed('terminal')
+
+  if (revealNarrowPane('terminal', sheetRevealed ? 'close' : 'open')) {
+    trackArea('terminal_pane', !sheetRevealed)
+
+    if (!sheetRevealed) {
+      focusRevealedTerminal()
+    }
+
+    return
+  }
+
   const revealed = !isPaneVisible('terminal')
 
   togglePaneVisible('terminal')

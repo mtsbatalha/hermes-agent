@@ -2,6 +2,7 @@ import { atom } from 'nanostores'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { $terminalTakeover, setTerminalTakeover } from '@/app/right-sidebar/store'
+import { PANE_TOGGLE_REVEAL_EVENT } from '@/components/pane-shell'
 import { registry } from '@/contrib/registry'
 
 import { allPaneIds, group, split } from './model'
@@ -9,6 +10,7 @@ import {
   $dismissedPanes,
   $hiddenTreePanes,
   $layoutTree,
+  $narrowViewport,
   activateTreePane,
   bindToolPaneCollapse,
   closeTabPane,
@@ -90,6 +92,57 @@ const stackTree = (options?: { active?: string; tabStrip?: 'always' | 'never' })
     ])
   )
 }
+
+describe('a tool deck opened on a narrow viewport', () => {
+  it('reveals its bottom sheet — the docked deck is not in the grid', () => {
+    // Ground truth for "opening the terminal on a phone does nothing": on a
+    // narrow viewport the deck has left the grid for its bottom sheet, so the
+    // open door has to reveal the OVERLAY. Every door inherits this from
+    // revealTreePane — here, the bindPaneCollapse listener that a terminal
+    // summon (Ctrl+Shift+`), a preset, or a plugin all end up writing.
+    stackTree({ active: 'terminal' })
+    $narrowViewport.set(true)
+
+    const $terminal = atom(false)
+    const events: Array<{ id?: string; mode?: string }> = []
+    const record = (event: Event) => events.push((event as CustomEvent<{ id?: string; mode?: string }>).detail)
+
+    window.addEventListener(PANE_TOGGLE_REVEAL_EVENT, record)
+    bindPaneCollapse('terminal', $terminal)
+
+    try {
+      expect(events).toEqual([])
+
+      $terminal.set(true)
+
+      expect(events).toEqual([{ id: 'terminal', mode: 'open' }])
+    } finally {
+      window.removeEventListener(PANE_TOGGLE_REVEAL_EVENT, record)
+      $narrowViewport.set(false)
+    }
+  })
+
+  it('leaves a wide viewport alone', () => {
+    stackTree({ active: 'terminal' })
+
+    const $terminal = atom(false)
+    const events: unknown[] = []
+    const record = (event: Event) => events.push((event as CustomEvent).detail)
+
+    window.addEventListener(PANE_TOGGLE_REVEAL_EVENT, record)
+    bindPaneCollapse('terminal', $terminal)
+
+    try {
+      $terminal.set(true)
+
+      // The docked deck IS the reveal — no overlay event on a wide viewport.
+      expect(events).toEqual([])
+      expect(isPaneVisible('terminal')).toBe(true)
+    } finally {
+      window.removeEventListener(PANE_TOGGLE_REVEAL_EVENT, record)
+    }
+  })
+})
 
 describe('binding a tool panel on boot', () => {
   it('does not front itself over the tab the persisted tree had active', () => {

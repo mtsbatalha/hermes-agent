@@ -491,10 +491,11 @@ non-regression proof.
   performs exactly that walk: open = titlebar button + `waitFor` + a 500ms paint
   wait; close = Escape + `waitFor({state:'detached'})`. It no-ops above the
   breakpoint.
-- **The docked terminal pane does NOT become an overlay.** It is declared
-  `placement:'bottom'`, `height:'20vh'`, `lifecycleKeepAlive:true` and WITHOUT
-  `collapsible` (`app/contrib/controller.tsx`), so the same overlay filter skips
-  it and it stays in the grid. Measured pane geometry per boot viewport:
+- **The docked terminal pane did NOT become an overlay** (fixed in round 7 — it
+  is a bottom SHEET now; the measurements below are what motivated that). It was
+  declared `placement:'bottom'`, `height:'20vh'`, `lifecycleKeepAlive:true` and
+  WITHOUT `collapsible` (`app/contrib/controller.tsx`), so the same overlay
+  filter skipped it and it stayed in the grid. Measured pane geometry per boot viewport:
   1280x900 → 223x110 (`RESIZE:34;7`); 1100x800 → 174x90 (`RESIZE:26;6`);
   760x900 → 83x110 (`RESIZE:11;7`); **390x844 → 53x99 / `RESIZE:6;6`** — about
   six columns. The Hermes TUI (Ink) repaints per column, so a 23-character probe
@@ -505,11 +506,9 @@ non-regression proof.
 
 ### How the two failing scenarios were adapted
 
-- `terminal-ui` **borrows a desktop-width pane**: when `NARROW_NAV` it sets the
-  viewport to 1280x900 before opening the terminal; the check's pre-existing
-  final `setViewportSize(viewport)` restores the run's viewport (the scenario
-  already resized mid-check, so nothing else in the suite sees the borrowed
-  size).
+- `terminal-ui` **used to borrow a desktop-width pane** (round 6): when
+  `NARROW_NAV` it set the viewport to 1280x900 before opening the terminal. Round
+  7 removed the borrow — the sheet carries the deck at the run's own viewport.
 - `clipboard-copy` reveals the sidebar overlay before locating the session row,
   and dismisses it around the seeding turn — the composer sits UNDER the 260px
   overlay on a 390px viewport, so it cannot be filled while the sidebar is open
@@ -571,16 +570,81 @@ being read as a product defect.
   garbage collection. Multiple-file partial upload rollback is not implemented.
 - Terminal socket close does not establish termination of the attach-enabled
   server child. This terminal is `hermes --tui`, not desktop shell parity.
-- **The phone layout's docked terminal is effectively unusable.** At 390x844 the
-  bottom pane measures 53x99 px (about six columns); the TUI repaints per column,
-  so a single 23-character line cannot be typed and read back at all. `terminal-ui`
-  therefore runs at a borrowed desktop width on narrow (documented in the "Mobile
-  narrow round" section). The pane is the only `bottom` pane and the only one
-  without `collapsible`, so it gets neither an overlay nor a narrow-specific
-  presentation — a product decision left open here.
+- ~~**The phone layout's docked terminal is effectively unusable.**~~ **Fixed** —
+  the deck now leaves the grid on a narrow viewport and is revealed as a bottom
+  SHEET; `terminal-ui` runs at the run's own viewport, no borrowed width. See
+  "Round 7 — the phone terminal is a bottom sheet" below.
 - New bridge error copy is English; complete localization remains open.
 
 The other thread's `spike/_inspect2.mjs` remains untouched and untracked.
 Screenshots from the last streaming runs carry the `stream-final` label; the
 earlier `stream-workflows-*` and `stream-connection-roundtrip*` sets are from
 earlier bundles and are left in place.
+
+## Round 7 — the phone terminal is a bottom sheet
+
+Round 6 left one product decision open: the docked terminal deck, the only
+`bottom` pane that is not `collapsible`, stayed in the grid at 390x844 and was
+squeezed to **53x99 px / `RESIZE:6;6`** (~six columns) — a TUI line could never be
+typed and read back, so `terminal-ui` borrowed a desktop width to run. That is
+now closed.
+
+**What changed** (harness-free; the app itself):
+
+- One predicate decides who leaves the grid: `leavesGridOnNarrow` in
+  `renderer/track-model.ts` — a `collapsible` rail OR a `placement: 'bottom'`
+  tool deck. `tree-split`'s `paneGone`, `tree-group`'s `paneShown`, the tab-strip
+  walk (`shownPanesInGroup`) and the overlay's own filter all read it, so no two
+  of them can disagree about which panes are on screen.
+- `NarrowOverlays` gained a third anchor. A bottom pane is no longer forced into
+  the `left`/`right` edge rail: it renders as a **bottom sheet** — `inset-x-0
+  bottom-0`, `height: 45vh` (`NARROW_SHEET_HEIGHT`), `data-narrow-sheet`, the
+  same keep-alive guest (so the PTY is not recreated), the zone's tab strip when
+  it has zone-mates, and Escape as its top layer. It deliberately has **no hover
+  strip**: a full-width strip on the bottom edge would sit on the dock and the
+  statusbar and steal their pointer events, so the sheet is revealed by its own
+  toggle.
+- `$narrowRevealed` (tree store) mirrors what the overlay is showing, and
+  `toggleTerminalPane` (Ctrl+\`) reads it for DIRECTION on narrow. The docked
+  `$terminalTakeover` boolean stays `true` behind the overlay, so it could not
+  answer "open or close?" on its own.
+- `revealTreePane` reveals the narrow overlay first, so EVERY open door inherits
+  the sheet — Ctrl+Shift+\` (`view.newTerminal`), a preset, a plugin summon — the
+  same way they all inherit the un-minimize. Guarded on `modeLayout.restoring`
+  (a boot or preset must not pop a sheet nobody asked for) and on chrome-hidden
+  panes (the overlay filter skips those, so a reveal could not surface them).
+
+**Evidence.**
+
+- Unit: `renderer/narrow-grid-exit.test.ts` (the predicate), the sheet cases in
+  `renderer/narrow-overlays.test.tsx` (bottom anchor + 45vh + no hover strip +
+  the side rail still sized by width), the narrow cases in
+  `tool-pane-toggle.test.ts` (an opened deck dispatches the overlay reveal on
+  narrow, and nothing on a wide viewport) and in
+  `terminal/reveal-focus.test.ts` (Ctrl+\` flips the sheet, leaves the tree alone).
+- Gate: the FULL suite is green at both shapes with the fix — **14/14 at
+  390x844** (`faults: []`, kept as
+  [artifacts/workflows/results-390x844.json](artifacts/workflows/results-390x844.json))
+  and **14/14 at 1280x900** (`faults: []`, [artifacts/workflows/results.json](artifacts/workflows/results.json)).
+  `terminal-ui` runs at the **run's own viewport** now — asserting the sheet
+  spans the viewport width and is tall enough for a TUI — and the artifact
+  records the sheet's box: **390x380 at 390x844** (`{"sheet":{"width":390,"height":380}}`).
+  The phone artifact predates the `viewport` field below; its filename names the
+  run.
+
+**Harness changes this round** (test infrastructure, not product):
+
+- `--only name[,name]` runs just the named scenarios in the file's own order —
+  for a focused re-run of one scenario without waiting out the whole suite.
+- The artifact records its own `viewport` (and `only`), because the same
+  `results.json` backs both shapes and a committed artifact that cannot name its
+  own viewport is not evidence.
+- `dismissNotifications` now clears the COLLAPSED stack too ("Show N more
+  notifications" / "Clear all"). A collapsed entry has no per-item Dismiss
+  button, so the old loop found none and left the stack covering the titlebar —
+  which is exactly how this machine's sticky shared-profile warning ("Another
+  Hermes installation is using this profile") broke a run at the `Close settings`
+  click. That toast is environmental and permanent here, not a product defect.
+- The settings-close housekeeping between rounds is tolerant of that toast and of
+  settings not being open at all (an `--only` run skips the rounds that open it);
+  the scenario that needs it closed still asserts its own state.

@@ -548,7 +548,7 @@ export function setSidebarWidth(width: number) {
 // docked `open` flag renders a 0px track invisibly. Centralised here so every
 // caller (titlebar, keybinds, session-search, reveal-file) inherits it instead
 // of re-deriving the narrow branch. Returns true when it handled the intent.
-function revealNarrowPane(id: string, mode: 'close' | 'open' | 'toggle'): boolean {
+export function revealNarrowPane(id: string, mode: 'close' | 'open' | 'toggle'): boolean {
   if (typeof window === 'undefined' || !matchesQuery(SIDEBAR_COLLAPSE_MEDIA_QUERY)) {
     return false
   }

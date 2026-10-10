@@ -38,6 +38,7 @@ import {
   cssMax,
   edgeFixedZone,
   fixedTrackSize,
+  leavesGridOnNarrow,
   MIN_PANE_PX,
   MINIMIZED_TRACK,
   paneChrome,
@@ -134,7 +135,8 @@ export function TreeSplit({
   // A pane leaves the grid when its contribution isn't registered (yet) — a
   // runtime plugin's pane collapses until the plugin loads, then appears; no
   // placeholder flash — when a chrome toggle hides it, or when the viewport
-  // is narrow and the pane is collapsible (edge overlay instead).
+  // is narrow and the pane's narrow presentation is an overlay (a collapsible
+  // rail's edge overlay, or a bottom tool deck's bottom sheet).
   const paneFor = (id: string) => panes.find(p => p.id === id)
 
   // Layout-edit mode (in Advanced) forces toggle-hidden panes (terminal off,
@@ -142,7 +144,7 @@ export function TreeSplit({
   // (unregistered) or narrow-collapsed panes stay gone. Restores itself on exit
   // (render-only).
   const paneGone = (id: string) =>
-    !paneFor(id) || (!revealsHidden && hiddenPanes.has(id)) || (narrow && Boolean(paneChrome(paneFor(id)).collapsible))
+    !paneFor(id) || (!revealsHidden && hiddenPanes.has(id)) || (narrow && leavesGridOnNarrow(paneChrome(paneFor(id))))
 
   const trackCtx: TrackContext = { paneFor, paneGone, overrides }
 

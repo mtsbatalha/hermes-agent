@@ -8,6 +8,7 @@ vi.mock('@/themes/context', () => ({
 }))
 
 import { PALETTE_AREA, type PaletteContribution } from '@/app/command-palette/contrib'
+import { PANE_TOGGLE_REVEAL_EVENT } from '@/components/pane-shell'
 import { useKeybinds } from '@/app/hooks/use-keybinds'
 import { $terminalTakeover, setTerminalTakeover } from '@/app/right-sidebar/store'
 import { terminalPaletteToggle } from '@/app/right-sidebar/terminal/reveal-focus'
@@ -15,6 +16,7 @@ import { useStatusbarItems } from '@/app/shell/hooks/use-statusbar-items'
 import { group, split } from '@/components/pane-shell/tree/model'
 import {
   $layoutTree,
+  $narrowRevealed,
   bindToolPaneCollapse,
   collapseTreePane,
   isPaneVisible,
@@ -311,6 +313,45 @@ describe('terminal reveal keyboard focus', () => {
     expect(document.activeElement).toBe(composer)
     expect(document.activeElement).not.toBe(visible)
     expect(isPaneVisible('terminal')).toBe(false)
+  })
+
+  it('flips the narrow bottom sheet instead of the docked zone', () => {
+    // On a narrow viewport the terminal has LEFT the grid for its bottom
+    // sheet, so Ctrl+` must flip the OVERLAY: the tree's `isPaneVisible` is
+    // true either way, and `$terminalTakeover` stays true behind the overlay,
+    // so neither could answer "open or close?" on its own.
+    const frame = installRaf()
+    const events: Array<{ id?: string; mode?: string }> = []
+    const record = (event: Event) => events.push((event as CustomEvent<{ id?: string; mode?: string }>).detail)
+
+    window.addEventListener(PANE_TOGGLE_REVEAL_EVENT, record)
+    vi.stubGlobal('matchMedia', () => ({ addEventListener: () => undefined, matches: true, removeEventListener: () => undefined }))
+
+    try {
+      showTerminalPane()
+      const visible = mountTerminal(true)
+
+      // Not revealed yet → the press OPENS the sheet, pinned, and claims the
+      // keyboard the same way a docked reveal does.
+      pressShowTerminal()
+      frame()
+      expect(events).toEqual([{ id: 'terminal', mode: 'open' }])
+      expect(document.activeElement).toBe(visible)
+
+      // The overlay now owns the reveal (as NarrowOverlays mirrors it) → the
+      // next press CLOSES it, and the docked tree was never touched.
+      $narrowRevealed.set('terminal')
+      pressShowTerminal()
+      frame()
+      expect(events).toEqual([
+        { id: 'terminal', mode: 'open' },
+        { id: 'terminal', mode: 'close' }
+      ])
+      expect(isPaneVisible('terminal')).toBe(true)
+    } finally {
+      window.removeEventListener(PANE_TOGGLE_REVEAL_EVENT, record)
+      $narrowRevealed.set(null)
+    }
   })
 
   it('takes focus from the statusbar toggle on reveal', () => {

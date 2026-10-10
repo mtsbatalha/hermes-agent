@@ -29,7 +29,7 @@ veredito **GO**).
 | **Streaming no wire**: `message.start` → `message.delta` → `message.complete`, com o texto real do modelo | [spike/FINDINGS.md](spike/FINDINGS.md) — "Acceptance criterion: met" | `node spike/stream.mjs` |
 | **Tool roda fim a fim**: `tool.generating` / `tool.start` / `tool.complete` (os frames que o tool card do Desktop renderiza) | [spike/FINDINGS.md](spike/FINDINGS.md) | `node spike/stream.mjs --message "Use your shell tool to run: echo toolcard-ok."` |
 | **Troca de sessão sem contaminação cruzada**, nos dois sentidos, a 1280×900 e a 390×844 | [spike/FINDINGS.md](spike/FINDINGS.md), [spike/README.md](spike/README.md) | `node spike/stream.mjs --width 390 --height 844 --label narrow` |
-| **14 cenários de workflow reais** passando em **1280×900** e em **390×844**, `faults: []` | [spike/WORKFLOW-REPORT.md](spike/WORKFLOW-REPORT.md) — "Final results"; [spike/artifacts/workflows/results.json](spike/artifacts/workflows/results.json) (14/14 `passed`, `faults: []`) | `node spike/workflows.mjs` e `node spike/workflows.mjs --viewport 390x844` |
+| **14 cenários de workflow reais** passando em **1280×900** e em **390×844**, `faults: []` | [spike/WORKFLOW-REPORT.md](spike/WORKFLOW-REPORT.md) — "Final results" e "Round 7"; [spike/artifacts/workflows/results.json](spike/artifacts/workflows/results.json) e [results-390x844.json](spike/artifacts/workflows/results-390x844.json) (14/14 `passed`, `faults: []`, com o viewport gravado no artefato) | `node spike/workflows.mjs` e `node spike/workflows.mjs --viewport 390x844` (ou `--only terminal-ui` para um cenário só) |
 | Cenários: chat wide/narrow, recusa visível de diagnóstico nativo/keychain, recusa visível de reconexão de gateway, save→reload do gateway, persistência de aparência, chip de URL, upload de arquivo com **readback byte-exato**, recusa visível de pasta, turno com anexo, copy de sessão, paste grande, paste de imagem, **drag-and-drop real de imagem** (CDP), terminal xterm | [spike/WORKFLOW-REPORT.md](spike/WORKFLOW-REPORT.md) — tabela "Final results" | idem acima |
 | **Auth nos dois modos, verificada de ponta a ponta contra o servidor real**: ungated (token injetado no HTML) e **gated** (login → cookies `HttpOnly` → REST 200/401 → WS com ticket de uso único) | [CAPABILITY-MATRIX.md](CAPABILITY-MATRIX.md) — "Both modes were verified end to end against the real server"; commit `11ab2a81` | `spike/_gated_serve.py` (modo gated); receita de deploy na matrix |
 | **Receita de deploy do cliente web** (build do renderer + `HERMES_WEB_DIST` + os dois modos, com sanity checks) | [CAPABILITY-MATRIX.md](CAPABILITY-MATRIX.md) — "Deploying the web client (both modes)" | comandos na seção |
@@ -58,14 +58,18 @@ O que muda abaixo do breakpoint de **760px** (medido, não presumido):
 
 **Não fechado — com ressalva explícita:**
 
-- ⚠️ **O terminal dockado é inutilizável no telefone.** O painel inferior mede
-  **53×99 px (~6 colunas)** a 390×844; a TUI repinta por coluna, então uma linha
-  de 23 caracteres não pode ser digitada e lida de volta. O cenário `terminal-ui`
-  por isso "empresta" um painel de largura desktop no narrow. É o único painel
-  `bottom` e o único sem `collapsible`, então não ganha overlay nem apresentação
-  específica — **decisão de produto, deixada em aberto** ([spike/WORKFLOW-REPORT.md](spike/WORKFLOW-REPORT.md)
-  — "The docked terminal pane does NOT become an overlay" e item correspondente).
-- ⚠️ **390×844 é emulação de viewport em Chromium desktop**, não device real:
+- ✅ **Terminal no telefone: fechado (round 7).** O deck `bottom` era o único
+  painel não-`collapsible` e ficava no grid a 390×844, espremido a **53×99 px
+  (~6 colunas)** — nenhuma linha da TUI podia ser digitada e lida de volta. Agora
+  ele **deixa o grid** pela mesma regra das rails (`leavesGridOnNarrow`) e volta
+  como **bottom sheet**: largura total, `45vh`, o mesmo guest keep-alive (o PTY
+  não é recriado), revelado pelo próprio toggle. O cenário `terminal-ui` roda no
+  **viewport do próprio run**, sem emprestar largura desktop, e afirma o sheet
+  (medido: **390×380** a 390×844). Detalhes em [spike/WORKFLOW-REPORT.md](spike/WORKFLOW-REPORT.md)
+  — "Round 7 — the phone terminal is a bottom sheet".
+- ⚠️ **390×844 é emulação de viewport em Chromium desktop** (o sheet é JS/CSS
+  puro — não há caminho nativo por trás dele, mas o teste acima ainda não é um
+  device real), não device real:
   sem teste de toque, sem navegador mobile, sem Safari/Firefox/Android (o
   fallback de file picker para navegadores sem suporte ainda não foi verificado —
   eles reportam o motivo, mas ninguém dirigiu o fluxo).

@@ -150,7 +150,22 @@ page.on('response', response => {
   if (url.pathname.startsWith('/api/')) requests.push({ path: url.pathname, status: response.status() })
 })
 const results = []
+// `--only terminal-ui[,drag-drop-image]` runs just the named scenarios, in the
+// file's own order. The FULL suite is the gate; this is for a focused re-run of
+// one scenario (its env setup is per-scenario, so a subset is self-contained).
+const onlyRaw =
+  process.argv.indexOf('--only') !== -1
+    ? process.argv[process.argv.indexOf('--only') + 1]
+    : process.argv.find(a => a.startsWith('--only='))?.split('=')[1]
+const ONLY = onlyRaw ? new Set(onlyRaw.split(',').map(name => name.trim()).filter(Boolean)) : null
+
 async function check(name, run) {
+  if (ONLY && !ONLY.has(name)) {
+    console.log(`SKIPPED ${name}: not in --only`)
+
+    return
+  }
+
   const from = faults.length
   try {
     const detail = await run()
@@ -208,10 +223,28 @@ const NARROW_NAV = viewport.width < 760
 // trigger and never fades on its own. Dismiss before navigating, exactly as
 // a user clearing the way would; refusal assertions later never dismiss.
 async function dismissNotifications() {
+  // Two shapes to clear. The toast stack over the titlebar collapses to
+  // "Show N more notifications" + "Clear all" once it grows past one item, and
+  // a collapsed entry has NO per-item Dismiss button — the loop below would
+  // find none and leave the stack covering the titlebar. The shared-profile
+  // warning on this machine is permanent, so it must be cleared, not waited
+  // out. Interception is retried rather than forced: the same discipline the
+  // scenario helpers use.
   for (let i = 0; i < 12; i++) {
-    const b = page.getByRole('button', { name: 'Dismiss notification', exact: true })
-    if (!(await b.count())) break
-    await b.first().click({ timeout: 8000 })
+    const perItem = page.getByRole('button', { name: 'Dismiss notification', exact: true })
+    const clearAll = page.getByRole('button', { name: 'Clear all', exact: true })
+    const more = page.getByText('more notification', { exact: false })
+
+    if (await perItem.count()) {
+      await perItem.first().click({ timeout: 8000 }).catch(() => undefined)
+    } else if (await clearAll.count()) {
+      await clearAll.first().click({ timeout: 8000 }).catch(() => undefined)
+    } else if (await more.count()) {
+      await more.first().click({ timeout: 8000 }).catch(() => undefined)
+    } else {
+      break
+    }
+
     await page.waitForTimeout(150)
   }
 }
@@ -410,8 +443,25 @@ try {
     )
     return 'Changed preference, reloaded, verified persistence, restored original.'
   })
-  if (NARROW_NAV) await dismissNotifications()
-  await page.getByRole('button', { name: 'Close settings', exact: true }).click()
+  // Housekeeping between the settings rounds, not an assertion: tolerant about
+  // a toast covering the titlebar (retry after clearing it) and about settings
+  // not being open at all (an --only run skips the rounds that opened it). The
+  // scenario that needs it closed asserts its own state on the next line.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await dismissNotifications()
+    const closeSettings = page.getByRole('button', { name: 'Close settings', exact: true })
+
+    if (!(await closeSettings.isVisible().catch(() => false))) {
+      break
+    }
+
+    try {
+      await closeSettings.click({ timeout: 5000 })
+      break
+    } catch (error) {
+      if (attempt === 2) throw error
+    }
+  }
   await check('url-context', async () => {
     const url = 'https://example.com/web-workflow-probe'
     await page.getByRole('button', { name: 'Add context', exact: true }).click()
@@ -476,21 +526,40 @@ try {
     return 'Unsupported browser folder is explained visibly, without an unhandled rejection.'
   })
   await check('terminal-ui', async () => {
-    // The terminal pane docks into the BOTTOM slot and is deliberately not
-    // `collapsible`, so unlike sessions/files/review it never becomes a narrow
-    // overlay: at 390x844 it stays in the grid, squeezed to ~53px, and the TUI
-    // behind /api/pty gets about six columns. A 23-character probe can never
-    // echo back on one line there (measured: the TUI repaints per column, so
-    // the string arrives interleaved with cursor moves). Borrow a desktop-width
-    // pane for this scenario — the flow below already resizes mid-check anyway
-    // — and restore the run's viewport when it finishes.
-    if (NARROW_NAV) {
-      await page.setViewportSize({ width: 1280, height: 900 })
-      await page.waitForTimeout(2000)
-    }
+    // The terminal docks into the BOTTOM slot. On a narrow viewport it leaves
+    // the grid for its bottom SHEET — full width, 45vh — instead of being
+    // squeezed into the right column's sliver (measured ~53x99px / six columns
+    // before this, where a 23-character TUI line can never echo back). So this
+    // scenario runs at the RUN'S OWN viewport: the sheet is what has to carry
+    // the terminal on a phone, and borrowing a desktop width would prove
+    // nothing about it.
+    // A toast sits over the titlebar (the shared-profile warning is sticky and
+    // shows whenever another Hermes installation uses the profile — on this
+    // machine it is permanent), so clear the deck before touching the toggles.
+    await dismissNotifications()
     const toggle = page.getByRole('button', { name: 'Show right sidebar', exact: true })
     if (await toggle.isVisible()) await toggle.click()
     await page.keyboard.press('Control+Shift+Backquote')
+
+    let sheetBox
+
+    if (NARROW_NAV) {
+      // Ctrl+Shift+` CREATES the terminal and marks the pane open; the deck is
+      // no longer in the grid, so that open door has to reveal the sheet.
+      const sheet = page.locator('[data-narrow-overlay="terminal"][data-narrow-sheet]')
+      await sheet.waitFor({ timeout: 30_000 })
+      sheetBox = await sheet.boundingBox()
+      assert.ok(sheetBox, 'the terminal sheet must have a box')
+      assert.ok(
+        sheetBox.width >= viewport.width - 2,
+        `the sheet must span the viewport width (got ${sheetBox.width} of ${viewport.width})`
+      )
+      assert.ok(
+        sheetBox.height >= 200,
+        `the sheet must be tall enough for a TUI (got ${sheetBox.height})`
+      )
+    }
+
     await page.locator('.xterm').waitFor({ timeout: 30_000 })
     const input = page.locator('.xterm-helper-textarea').first()
     await page.waitForFunction(() => window.__ptyProbe.receivedBytes > 0, undefined, { timeout: 30_000 })
@@ -524,10 +593,11 @@ try {
     await page.waitForFunction(() => window.__ptyProbe.closed > 0, undefined, { timeout: 5000 })
     await page.setViewportSize(viewport)
     return {
-      receivedBytes: probe.receivedBytes,
+      closed: true,
       deliveredBytes: probe.deliveredBytes,
+      receivedBytes: probe.receivedBytes,
       resizeFrames: probe.sent.filter(frame => frame.startsWith('\u001b[RESIZE:')).length,
-      closed: true
+      sheet: sheetBox ? { height: Math.round(sheetBox.height), width: Math.round(sheetBox.width) } : undefined
     }
   })
   await check('clipboard-copy', async () => {
@@ -1281,7 +1351,22 @@ try {
   try {
     writeFileSync(
       `${artifacts}/results.json`,
-      JSON.stringify({ base, measuredAt: new Date().toISOString(), results, faults, requests }, null, 2)
+      // `viewport` and `only` are recorded so the artifact says WHICH run it is:
+      // the same file backs both the 1280x900 and the 390x844 suite, and a
+      // committed artifact that cannot name its own viewport is not evidence.
+      JSON.stringify(
+        {
+          base,
+          measuredAt: new Date().toISOString(),
+          results,
+          faults,
+          requests,
+          only: ONLY ? [...ONLY] : null,
+          viewport: `${viewport.width}x${viewport.height}`
+        },
+        null,
+        2
+      )
     )
   } finally {
     await browser.close()

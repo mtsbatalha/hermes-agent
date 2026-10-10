@@ -18,6 +18,9 @@ import { notify } from '@/store/notifications'
 import { clearAllPaneSizeOverrides } from '@/store/panes'
 import { isBrowserWindow, isSecondaryWindow } from '@/store/windows'
 
+import { PANE_TOGGLE_REVEAL_EVENT } from '../index'
+import { leavesGridOnNarrow, paneChrome } from './renderer/track-model'
+
 import {
   allPaneIds,
   type DropPosition,
@@ -832,12 +835,14 @@ export function shownPanesInGroup(group: { panes: readonly string[] }): string[]
       return false
     }
 
-    // Match TreeGroup's paneShown for the narrow breakpoint — collapsible
-    // panes drop out of the strip when the viewport collapses them.
+    // Match TreeGroup's paneShown for the narrow breakpoint — panes whose
+    // narrow presentation is an overlay (collapsible rails, bottom decks) drop
+    // out of the strip when the viewport collapses them. Same predicate the
+    // renderer reads, so the two cannot disagree about which panes are shown.
     if (
       typeof window !== 'undefined' &&
       window.matchMedia?.(SIDEBAR_COLLAPSE_MEDIA_QUERY).matches &&
-      Boolean((pane.data as { collapsible?: boolean } | undefined)?.collapsible)
+      leavesGridOnNarrow(pane.data as { collapsible?: boolean; placement?: string })
     ) {
       return false
     }
@@ -1220,10 +1225,44 @@ export function treeSideOfPane(paneId: string): TreeSide | null {
 }
 
 /**
+ * Reveal a pane through its NARROW overlay, when it has one.
+ *
+ * On a narrow viewport a pane whose presentation is an overlay is NOT in the
+ * grid (`leavesGridOnNarrow`), so "reveal the pane" has to mean "reveal its
+ * overlay" — an edge rail for a collapsible, the bottom sheet for a tool deck.
+ * Dispatched as the app's own toggle-reveal event so the overlay (NarrowOverlays)
+ * stays the single owner of what is on screen.
+ *
+ * No-op on a wide viewport, while a layout is restoring (a preset or boot must
+ * not pop a sheet the user never asked for), for a pane that stays docked, and
+ * for one the user chrome-hid — the overlay filter skips hidden panes, so a
+ * reveal could not surface it anyway.
+ */
+function revealNarrowOverlay(paneId: string) {
+  if (!$narrowViewport.get() || modeLayout.restoring || $hiddenTreePanes.get().has(paneId)) {
+    return
+  }
+
+  const pane = registry.getArea('panes').find(contribution => contribution.id === paneId)
+
+  if (!pane || !leavesGridOnNarrow(paneChrome(pane))) {
+    return
+  }
+
+  window.dispatchEvent(new CustomEvent(PANE_TOGGLE_REVEAL_EVENT, { detail: { id: paneId, mode: 'open' } }))
+}
+
+/**
  * App intent "show pane X" (a preview target landed, ⌘G opened review, …):
  * open its side, unhide it, and bring it to the front of its group.
  */
 export function revealTreePane(paneId: string) {
+  // Narrow: an overlay pane is not in the grid, so the reveal below (which
+  // un-minimizes a zone and fronts a tab that is not rendered anyway) is not
+  // what surfaces it. Every door inherits this — the pane's own toggle, the
+  // zone rail, a plugin's summon — the same way they all inherit the rest.
+  revealNarrowOverlay(paneId)
+
   // Reveal beats a Close: un-dismiss and let adoption put the pane back.
   if ($dismissedPanes.get().has(paneId)) {
     setDismissed(paneId, false)
@@ -1289,9 +1328,10 @@ export function revealTreePane(paneId: string) {
 }
 
 /**
- * Narrow viewport (the app's sidebar-collapse breakpoint): panes whose
- * contribution declares `collapsible: true` leave the grid and become
- * edge overlays (see NarrowOverlays in renderer.tsx).
+ * Narrow viewport (the app's sidebar-collapse breakpoint): panes whose narrow
+ * presentation is an overlay leave the grid — a `collapsible` rail becomes an
+ * edge overlay, a bottom tool deck a bottom sheet (see NarrowOverlays in
+ * renderer.tsx). One predicate decides it: `leavesGridOnNarrow`.
  */
 // Optional-chained + `typeof window` guarded like every other matchMedia call
 // site: this module is imported by non-DOM code paths (session actions) whose
@@ -1299,6 +1339,19 @@ export function revealTreePane(paneId: string) {
 const narrowQuery = typeof window !== 'undefined' ? window.matchMedia?.(SIDEBAR_COLLAPSE_MEDIA_QUERY) : undefined
 
 export const $narrowViewport = atom(Boolean(narrowQuery?.matches))
+
+/** The pane currently revealed as a narrow overlay (an edge rail, or a bottom
+ *  sheet), or null. NarrowOverlays OWNS it — the one place that decides what a
+ *  narrow overlay shows — and toggles read it for DIRECTION. The terminal is
+ *  the reason it exists: on narrow the pane has left the grid for its sheet,
+ *  so the docked `$terminalTakeover` boolean (true behind the overlay) cannot
+ *  say whether a Ctrl+` press should open or close it. */
+export const $narrowRevealed = atom<string | null>(null)
+
+/** Is this pane the one currently revealed as a narrow overlay? */
+export function isNarrowRevealed(paneId: string): boolean {
+  return $narrowRevealed.get() === paneId
+}
 
 narrowQuery?.addEventListener('change', event => $narrowViewport.set(event.matches))
 

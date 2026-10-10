@@ -172,3 +172,74 @@ describe('narrow overlay of a stacked zone', () => {
     )
   })
 })
+
+describe('a bottom tool deck on a narrow viewport', () => {
+  // The deck lives where the DEFAULT tree puts it: the bottom zone of the
+  // right column. Docked there on a phone it measures 53x99px (~six columns),
+  // which no TUI can use — so it leaves the grid and is revealed as a bottom
+  // sheet: full width, 45vh tall, still the same keep-alive guest.
+  const dockedTerminal = () => {
+    registerPane(
+      'terminal',
+      'terminal',
+      { height: '20vh', lifecycleKeepAlive: true, placement: 'bottom' },
+      'pty output'
+    )
+    registerPane('files', 'files', { collapsible: true, placement: 'right', width: '237px' }, 'file tree')
+    $layoutTree.set(
+      split('row', [group(['workspace']), split('column', [group(['files']), group(['terminal'])], [1.6, 1])])
+    )
+  }
+
+  it('reveals as a full-width bottom sheet instead of a docked sliver', () => {
+    dockedTerminal()
+
+    const { getByTestId } = render(<NarrowOverlays />)
+
+    revealPane('terminal')
+
+    const sheet = document.querySelector<HTMLElement>('[data-narrow-overlay="terminal"]')
+
+    expect(sheet).toBeTruthy()
+    // Anchored to the bottom edge and spanning the viewport, not an edge rail.
+    expect(sheet?.getAttribute('data-narrow-sheet')).toBe('')
+    expect(sheet?.className).toContain('inset-x-0')
+    expect(sheet?.className).toContain('bottom-0')
+    expect(sheet?.className).not.toContain('inset-y-0')
+    expect(sheet?.style.height).toBe('45vh')
+    // The deck's own body is what renders inside it.
+    expect(getByTestId('terminal-body')).toBeTruthy()
+  })
+
+  it('keeps the sheet off the hover strips — it is toggle-driven', () => {
+    // A full-width hover strip along the bottom edge would intercept the dock
+    // and the statusbar; the sheet is revealed by its toggle (Ctrl+`) alone.
+    dockedTerminal()
+
+    render(<NarrowOverlays />)
+
+    const strips = document.querySelectorAll<HTMLElement>('[data-narrow-hover-strip]')
+
+    // Only the right rail (files) has one.
+    expect(strips.length).toBe(1)
+    expect(strips[0].className).toContain('right-0')
+    expect(strips[0].className).not.toContain('bottom-0')
+  })
+
+  it('still sizes a side rail by width, not by sheet height', () => {
+    registerPane('terminal', 'terminal', { height: '20vh', placement: 'bottom' }, 'pty output')
+    registerPane('files', 'files', { collapsible: true, placement: 'right', width: '237px' }, 'file tree')
+    $layoutTree.set(split('row', [group(['workspace']), group(['files', 'terminal'], { id: 'grp-right' })]))
+
+    render(<NarrowOverlays />)
+
+    revealPane('files')
+
+    const rail = document.querySelector<HTMLElement>('[data-narrow-overlay="files"]')
+
+    expect(rail).toBeTruthy()
+    expect(rail?.getAttribute('data-narrow-sheet')).toBeNull()
+    expect(rail?.className).toContain('inset-y-0')
+    expect(rail?.style.height).toBe('')
+  })
+})

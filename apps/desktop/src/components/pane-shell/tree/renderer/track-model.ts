@@ -47,6 +47,10 @@ export interface PaneSizing {
 interface PaneChrome extends PaneSizing {
   /** Leaves the grid on narrow viewports; revealed as an edge overlay. */
   collapsible?: boolean
+  /** Bottom-placement tool decks only: the narrow presentation is a bottom
+   *  SHEET (full width, 45vh) rather than an edge rail. Read via
+   *  `leavesGridOnNarrow`, not directly. */
+  narrowSheet?: boolean
   /** Arrive minimized — a rail tab rather than an open zone. For a pane that
    *  docks to an edge this is the vertical strip; the user's first expand is
    *  persisted on the zone and wins from then on. Applied when the pane ENTERS
@@ -123,6 +127,28 @@ interface PaneChrome extends PaneSizing {
 }
 
 export const paneChrome = (c: Contribution | undefined) => (c?.data ?? {}) as PaneChrome
+
+/**
+ * Does this pane LEAVE THE GRID on a narrow viewport?
+ *
+ * Two kinds do, and they come back differently:
+ *
+ * - A `collapsible` rail (sessions / files / review) leaves and is revealed as
+ *   an edge overlay.
+ * - A BOTTOM tool deck (terminal / logs) leaves and is revealed as a bottom
+ *   sheet. The DEFAULT tree docks the deck as the bottom zone of the RIGHT
+ *   column; once the collapsible rails leave, the deck is alone in a column
+ *   that collapses to a sliver — measured 53x99px / `RESIZE:6;6` at 390x844,
+ *   about six columns, where the TUI repaints per column and a 23-character
+ *   line can never be typed and read back.
+ *
+ * The ONE predicate every site reads (tree-split's paneGone, tree-group's
+ * paneShown, the tab-strip walk, the overlay's own filter), so they cannot
+ * disagree about which panes are on screen.
+ */
+export function leavesGridOnNarrow(chrome: { collapsible?: boolean; placement?: string }): boolean {
+  return Boolean(chrome.collapsible) || chrome.placement === 'bottom'
+}
 
 /** Resolve a computed style length ("237px" / "none" / "auto") to px. */
 export function computedPx(value: string, fallback: number): number {

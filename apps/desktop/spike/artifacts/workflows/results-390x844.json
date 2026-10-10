@@ -1,0 +1,1378 @@
+{
+  "base": "http://127.0.0.1:5176/spike.html",
+  "measuredAt": "2026-10-09T23:57:49.840Z",
+  "results": [
+    {
+      "name": "logs-capability",
+      "status": "passed",
+      "detail": "Native log reveal and keychain controls are not offered when unsupported."
+    },
+    {
+      "name": "connection-apply",
+      "status": "passed",
+      "detail": "Unsupported reconnect is rejected visibly instead of announcing success."
+    },
+    {
+      "name": "connection-persistence",
+      "status": "passed",
+      "detail": {
+        "roundtrip": "ssh entry survives reload",
+        "mode": "local"
+      }
+    },
+    {
+      "name": "appearance-persistence",
+      "status": "passed",
+      "detail": "Changed preference, reloaded, verified persistence, restored original."
+    },
+    {
+      "name": "url-context",
+      "status": "passed",
+      "detail": "Added URL context chip and removed it; nothing submitted or fetched."
+    },
+    {
+      "name": "file-picker-upload",
+      "status": "passed",
+      "detail": "Browser file uploaded, read back from the gateway, byte contents matched."
+    },
+    {
+      "name": "folder-picker-degradation",
+      "status": "passed",
+      "detail": "Unsupported browser folder is explained visibly, without an unhandled rejection."
+    },
+    {
+      "name": "terminal-ui",
+      "status": "passed",
+      "detail": {
+        "closed": true,
+        "deliveredBytes": 1237,
+        "receivedBytes": 1273,
+        "resizeFrames": 2,
+        "sheet": {
+          "height": 380,
+          "width": 390
+        }
+      }
+    },
+    {
+      "name": "clipboard-copy",
+      "status": "passed",
+      "detail": {
+        "copied": "20261008_180306_7263",
+        "survivedReload": true
+      }
+    },
+    {
+      "name": "image-large-paste",
+      "status": "passed",
+      "detail": {
+        "editorLength": 0,
+        "submittedRef": "pasted_content_2026-10-09T23-56-09-392Z_0ad1ec.txt",
+        "settled": true
+      }
+    },
+    {
+      "name": "image-paste-attach",
+      "status": "passed",
+      "detail": {
+        "attachedOnWire": true,
+        "stagedPath": true,
+        "settled": true
+      }
+    },
+    {
+      "name": "clipboard-image-real-paste",
+      "status": "passed",
+      "detail": {
+        "chip": "clipboard-image-mv1mjr5v.png",
+        "stagedPath": "C:\\Users\\Mateus\\.hermes-web-attachments\\6ee32c82-2704-4b23-b0e4-61b2b9aa0993\\clipboard-image-mv1mjr5v.png",
+        "clipboardBytes": 88
+      }
+    },
+    {
+      "name": "drag-drop-image",
+      "status": "passed",
+      "detail": {
+        "drops": 2,
+        "stagedNames": [
+          "dnd-input-mv1mjrar.png",
+          "dnd-root-mv1mjrar.png"
+        ],
+        "bytesMatch": true,
+        "attachedOnWire": true,
+        "uploadStreams": 2,
+        "stopTicks": 568,
+        "settled": true
+      }
+    },
+    {
+      "name": "attachment-turn",
+      "status": "passed",
+      "detail": {
+        "citedPath": "C:\\Users\\Mateus\\AppData\\Local\\hermes\\attachments\\attach-turn-mv1ml57h.txt",
+        "uploaded": true,
+        "replyVisible": true,
+        "bytesMatched": true
+      }
+    }
+  ],
+  "faults": [],
+  "requests": [
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/audio/voice-live/status",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/host/identity",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/default-cwd",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/config/defaults",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/host/identity",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/default-cwd",
+      "status": 200
+    },
+    {
+      "path": "/api/model/info",
+      "status": 200
+    },
+    {
+      "path": "/api/config/defaults",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/audio/voice-live/status",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/model/info",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/sessions/owner-backfill",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
+      "status": 200
+    },
+    {
+      "path": "/api/tools/terminal/backends",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/config/schema",
+      "status": 200
+    },
+    {
+      "path": "/api/audio/elevenlabs/voices",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/config/defaults",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/model/auxiliary",
+      "status": 200
+    },
+    {
+      "path": "/api/model/moa",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/model/info",
+      "status": 200
+    },
+    {
+      "path": "/api/audio/voice-live/status",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/model/info",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions",
+      "status": 200
+    },
+    {
+      "path": "/api/model/options",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/default-cwd",
+      "status": 200
+    },
+    {
+      "path": "/api/host/identity",
+      "status": 200
+    },
+    {
+      "path": "/api/model/info",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
+      "status": 200
+    },
+    {
+      "path": "/api/sessions/owner-backfill",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/config/defaults",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/default-cwd",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/config/defaults",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/audio/voice-live/status",
+      "status": 200
+    },
+    {
+      "path": "/api/model/info",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/tools/terminal/backends",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/host/identity",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/default-cwd",
+      "status": 200
+    },
+    {
+      "path": "/api/model/info",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/config/defaults",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/default-cwd",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/config/defaults",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
+      "status": 200
+    },
+    {
+      "path": "/api/sessions/owner-backfill",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/audio/voice-live/status",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/model/info",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/tools/terminal/backends",
+      "status": 200
+    },
+    {
+      "path": "/api/audio/voice-live/status",
+      "status": 200
+    },
+    {
+      "path": "/api/config/defaults",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/audio/voice-live/status",
+      "status": 200
+    },
+    {
+      "path": "/api/model/info",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/files",
+      "status": 200
+    },
+    {
+      "path": "/api/files/upload-stream",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/read-data-url",
+      "status": 200
+    },
+    {
+      "path": "/api/files",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/audio/voice-live/status",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/host/identity",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/default-cwd",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/config/defaults",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/host/identity",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/default-cwd",
+      "status": 200
+    },
+    {
+      "path": "/api/model/info",
+      "status": 200
+    },
+    {
+      "path": "/api/config/defaults",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/sessions/owner-backfill",
+      "status": 200
+    },
+    {
+      "path": "/api/audio/voice-live/status",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/active",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/config/defaults",
+      "status": 200
+    },
+    {
+      "path": "/api/model/info",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/files",
+      "status": 200
+    },
+    {
+      "path": "/api/files/upload-stream",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/tools/terminal/backends",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions",
+      "status": 200
+    },
+    {
+      "path": "/api/model/info",
+      "status": 200
+    },
+    {
+      "path": "/api/audio/voice-live/status",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/sessions/20261009_205609_01230b/timeline",
+      "status": 404
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions",
+      "status": 200
+    },
+    {
+      "path": "/api/config/defaults",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/audio/voice-live/status",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
+      "status": 200
+    },
+    {
+      "path": "/api/sessions/20261009_205609_01230b/messages",
+      "status": 200
+    },
+    {
+      "path": "/api/sessions/20261009_205609_01230b/messages",
+      "status": 200
+    },
+    {
+      "path": "/api/config/defaults",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/sessions/20261009_205609_01230b/timeline",
+      "status": 200
+    },
+    {
+      "path": "/api/audio/voice-live/status",
+      "status": 200
+    },
+    {
+      "path": "/api/files",
+      "status": 200
+    },
+    {
+      "path": "/api/files/upload-stream",
+      "status": 200
+    },
+    {
+      "path": "/api/sessions/20261009_205609_01230b/timeline",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
+      "status": 200
+    },
+    {
+      "path": "/api/config/defaults",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/audio/voice-live/status",
+      "status": 200
+    },
+    {
+      "path": "/api/files",
+      "status": 200
+    },
+    {
+      "path": "/api/files/upload-stream",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/read-data-url",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/read-data-url",
+      "status": 200
+    },
+    {
+      "path": "/api/files",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/files",
+      "status": 200
+    },
+    {
+      "path": "/api/files/upload-stream",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/read-data-url",
+      "status": 200
+    },
+    {
+      "path": "/api/files",
+      "status": 200
+    },
+    {
+      "path": "/api/files/upload-stream",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/read-data-url",
+      "status": 200
+    },
+    {
+      "path": "/api/sessions/20261009_205609_01230b/timeline",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/status",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles",
+      "status": 200
+    },
+    {
+      "path": "/api/sessions/20261009_205609_01230b/messages",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/read-data-url",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/read-data-url",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions",
+      "status": 200
+    },
+    {
+      "path": "/api/sessions/20261009_205609_01230b/messages",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
+      "status": 200
+    },
+    {
+      "path": "/api/config/defaults",
+      "status": 200
+    },
+    {
+      "path": "/api/config",
+      "status": 200
+    },
+    {
+      "path": "/api/audio/voice-live/status",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/files",
+      "status": 200
+    },
+    {
+      "path": "/api/files",
+      "status": 200
+    },
+    {
+      "path": "/api/files",
+      "status": 200
+    },
+    {
+      "path": "/api/files/upload-stream",
+      "status": 200
+    },
+    {
+      "path": "/api/sessions/20261009_205609_01230b/timeline",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/read-data-url",
+      "status": 200
+    },
+    {
+      "path": "/api/dashboard/plugins",
+      "status": 200
+    },
+    {
+      "path": "/api/fs/list",
+      "status": 200
+    },
+    {
+      "path": "/api/profiles/sessions/sidebar",
+      "status": 200
+    },
+    {
+      "path": "/api/cron/jobs",
+      "status": 200
+    }
+  ]
+}

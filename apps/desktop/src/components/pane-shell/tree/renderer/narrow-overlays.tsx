@@ -22,10 +22,20 @@ import { PANE_TOGGLE_REVEAL_EVENT } from '../..'
 import { useWindowControlsOverlap } from '../../geometry'
 import { NO_PANE_GROUP } from '../../pane-visibility'
 import { allPaneIds, findGroupOfPane, type LayoutNode } from '../model'
-import { $hiddenTreePanes, $layoutTree, $narrowViewport } from '../store'
+import { $hiddenTreePanes, $layoutTree, $narrowRevealed, $narrowViewport } from '../store'
 
 import { KeepAlivePaneSlot, useStablePaneHosts } from './keep-alive-panes'
-import { fixedTrackSize, paneChrome, type TrackContext } from './track-model'
+import { fixedTrackSize, leavesGridOnNarrow, paneChrome, type TrackContext } from './track-model'
+
+/** The height a revealed bottom SHEET takes — a bottom tool deck (terminal,
+ *  logs) revealed over the layout. A docked deck on a phone is a ~6-column
+ *  sliver; the sheet gives it the full width and 45% of the height, which is
+ *  a usable TUI (measured ~44 columns x ~23 rows at 390x844). */
+export const NARROW_SHEET_HEIGHT = '45vh'
+
+/** Where a pane's narrow overlay sits. Collapsible rails take an edge; a
+ *  bottom tool deck takes the bottom edge, full width. */
+type OverlayKind = 'left' | 'right' | 'bottom'
 
 /** The width a revealed narrow overlay sizes itself to: the SAME resolution
  *  the pane's zone uses while docked — declared max() refined by the live
@@ -80,12 +90,24 @@ export function NarrowOverlays() {
   const revealActive = reveal !== null
   useEffect(() => (revealActive ? pushEscapeLayer(ESCAPE_PRIORITY.narrowOverlay) : undefined), [revealActive])
 
+  // Mirror the reveal into the store so a pane toggle can read its DIRECTION
+  // before dispatching (the terminal's Ctrl+` asks here first). Owned by this
+  // component: it is the single place that decides what a narrow overlay shows.
+  useEffect(() => {
+    $narrowRevealed.set(narrow && !solo && reveal ? reveal.id : null)
+
+    return () => $narrowRevealed.set(null)
+  }, [narrow, solo, reveal])
+
   const inTree = useMemo(() => new Set(tree ? allPaneIds(tree) : []), [tree])
 
   const collapsibles = useMemo(
     // Solo adopts sidebar panes without their surrounding sidebar chrome.
     // Suppress every reveal path while those panes are intentionally hidden.
-    () => (solo ? [] : panes.filter(p => paneChrome(p).collapsible && inTree.has(p.id) && !hiddenPanes.has(p.id))),
+    // `leavesGridOnNarrow` is the SAME predicate the grid reads, so a pane the
+    // renderer dropped is exactly a pane this can reveal (collapsible rails
+    // and bottom tool decks alike).
+    () => (solo ? [] : panes.filter(p => leavesGridOnNarrow(paneChrome(p)) && inTree.has(p.id) && !hiddenPanes.has(p.id))),
     [solo, panes, inTree, hiddenPanes]
   )
 
@@ -153,9 +175,23 @@ export function NarrowOverlays() {
     return null
   }
 
-  const sideOf = (c: Contribution) => (paneChrome(c).placement === 'left' ? 'left' : 'right')
+  const kindOf = (c: Contribution): OverlayKind => {
+    const placement = paneChrome(c).placement
+
+    // A bottom deck is NOT an edge: it spans the viewport's bottom edge.
+    if (placement === 'bottom') {
+      return 'bottom'
+    }
+
+    return placement === 'left' ? 'left' : 'right'
+  }
+
   const revealed = reveal ? collapsibles.find(p => p.id === reveal.id) : undefined
-  const sides = [...new Set(collapsibles.map(sideOf))]
+  // Hover strips only for the vertical edges. A full-width strip along the
+  // bottom edge would sit on the dock and the statusbar and steal their
+  // pointer events; a bottom sheet is revealed by its own toggle (Ctrl+`).
+  const sides = [...new Set(collapsibles.map(kindOf))].filter(kind => kind !== 'bottom')
+  const sheet = revealed ? kindOf(revealed) === 'bottom' : false
 
   // Size the overlay the way the pane's zone is sized while docked: declared
   // width refined by the user's drag override (fixedTrackSize), so a pane the
@@ -191,9 +227,10 @@ export function NarrowOverlays() {
       {sides.map(side => (
         <div
           className={cn('absolute inset-y-0 z-30 w-1.5', side === 'left' ? 'left-0' : 'right-0')}
+          data-narrow-hover-strip=""
           key={side}
           onMouseEnter={() => {
-            const first = collapsibles.find(p => sideOf(p) === side)
+            const first = collapsibles.find(p => kindOf(p) === side)
 
             if (first) {
               setReveal(current => (current?.pinned ? current : { id: first.id, pinned: false }))
@@ -205,16 +242,19 @@ export function NarrowOverlays() {
       {revealed && (
         <div
           className={cn(
-            'absolute inset-y-0 z-40 flex flex-col overflow-hidden bg-(--ui-sidebar-surface-background) shadow-2xl',
-            sideOf(revealed) === 'left'
-              ? 'left-0 border-r border-(--ui-stroke-secondary)'
-              : 'right-0 border-l border-(--ui-stroke-secondary)'
+            'absolute z-40 flex flex-col overflow-hidden bg-(--ui-sidebar-surface-background) shadow-2xl',
+            kindOf(revealed) === 'bottom'
+              ? 'inset-x-0 bottom-0 border-t border-(--ui-stroke-secondary)'
+              : kindOf(revealed) === 'left'
+                ? 'inset-y-0 left-0 border-r border-(--ui-stroke-secondary)'
+                : 'inset-y-0 right-0 border-l border-(--ui-stroke-secondary)'
           )}
           // Floats OVER the layout, so under glass its surface must mask the
           // panes beneath it — a see-through overlay reads as text bleeding
           // through text. Contract: `[data-glass-opaque]` in styles.css.
           data-glass-opaque=""
           data-narrow-overlay={revealed.id}
+          data-narrow-sheet={sheet ? '' : undefined}
           onMouseLeave={onMouseLeave}
           ref={overlayRef}
           // Match the pane's docked width (sessions ~237px, files its rail
@@ -222,12 +262,18 @@ export function NarrowOverlays() {
           // paddingTop keeps the tab strip below the native window controls
           // (macOS traffic lights); the spacer above keeps that band
           // draggable, mirroring TreeGroup's reservation.
-          style={{
-            paddingTop: wcOverlap ? wcOverlap.y + wcOverlap.height : undefined,
-            width: `min(${overlayWidth}, 85vw)`
-          }}
+          style={
+            sheet
+              ? // A bottom sheet spans the width and takes the sheet height;
+                // the window controls are at the TOP edge, out of its way.
+                { height: NARROW_SHEET_HEIGHT }
+              : {
+                  paddingTop: wcOverlap ? wcOverlap.y + wcOverlap.height : undefined,
+                  width: `min(${overlayWidth}, 85vw)`
+                }
+          }
         >
-          {wcOverlap && (
+          {wcOverlap && !sheet && (
             <div
               aria-hidden="true"
               className="pointer-events-none absolute z-10 [-webkit-app-region:drag]"
